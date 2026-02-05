@@ -1,0 +1,42 @@
+﻿<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Register</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Register</h1>
+    <p class="hint">The system will generate a random password (digits or emoji). Users cannot choose their own.</p>
+
+    <form id="register-form" class="card" autocomplete="off">
+      <label>
+        Participant ID (optional)
+        <input id="participant-id" type="text" placeholder="e.g., P001" />
+      </label>
+
+      <fieldset>
+        <legend>Password Type</legend>
+        <label><input type="radio" name="password-type" value="digits" checked /> Digits PIN</label>
+        <label><input type="radio" name="password-type" value="emoji" /> Emoji</label>
+      </fieldset>
+
+      <button type="submit" class="primary">Generate & Register</button>
+    </form>
+
+    <section id="result" class="card hidden" aria-live="polite">
+      <h2>Your Password</h2>
+      <div id="generated-password" class="password-display">----</div>
+      <p class="hint">Please remember it. You must use the same input method to log in.</p>
+    </section>
+
+    <div class="actions">
+      <button id="go-login" class="secondary" disabled>Go to Login</button>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

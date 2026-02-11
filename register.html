@@ -23,13 +23,29 @@
         <label><input type="radio" name="password-type" value="emoji" /> Emoji</label>
       </fieldset>
 
-      <button type="submit" class="primary">Generate & Register</button>
+      <button type="submit" class="primary">Generate Password</button>
     </form>
 
-    <section id="result" class="card hidden" aria-live="polite">
-      <h2>Your Password</h2>
+    <section id="confirm-passcode" class="card hidden">
+      <h2>Your New Password</h2>
       <div id="generated-password" class="password-display">----</div>
-      <p class="hint">Please remember it. You must use the same input method to log in.</p>
+      <p class="hint">Memorize this. You must enter it below to complete registration.</p>
+
+      <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid #ccc;" />
+
+      <h3>Confirm Password</h3>
+      <div id="confirm-display" class="input-display" style="margin-bottom: 1rem;">----</div>
+      
+      <div id="confirm-keypad" class="keypad"></div>
+
+      <form id="result" aria-live="polite" style="margin-top: 1rem;">
+        <p id="confirm-message" class="message hidden"></p>
+        
+        <div class="actions">
+          <button type="button" id="confirm-clear" class="secondary">Clear</button>
+          <button type="submit" class="primary">Confirm & Save</button>
+        </div>
+      </form>
     </section>
 
     <div class="actions">

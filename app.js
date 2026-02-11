@@ -4,6 +4,8 @@ const MAX_EMOJI_REPEAT = 2;
 const EMOJI_LIST = ["😀", "😁", "😂", "🤣", "😅", "😊", "😎", "😍", "😘", "🤔", "😴", "😡", "🤯", "🥳", "😈", "🤖"];
 
 const STORAGE_KEY = "hcs_emoji_auth";
+const CENSOR_CHAR = "●";
+const EMPTY_CHAR = "-"
 
 // Save registration payload into localStorage.
 const saveRegistration = (payload) => {
@@ -44,11 +46,11 @@ const randomEmojiPin = () => {
   return result.join("");
 };
 
-// Format input display: dots for digits, emojis for emoji mode.
-const formatInputDisplay = (inputArray, passwordType) => {
-  if (passwordType === "emoji") return inputArray.length ? inputArray.join("") : "----";
+// Format input display: dots for password censor
+const formatInputDisplay = (inputArray) => {
   if (inputArray.length === 0) return "----";
-  return "●".repeat(inputArray.length);
+  let censorLen = PIN_LENGTH - inputArray.length;
+  return CENSOR_CHAR.repeat(inputArray.length)+EMPTY_CHAR.repeat(censorLen);
 };
 
 // Update the small length counter under the input display.
@@ -57,42 +59,6 @@ const updateLengthMeta = (metaEl, length) => {
   metaEl.textContent = `Length ${length} / ${PIN_LENGTH}`;
 };
 
-// Initialize the register page if present.
-const setupRegisterPage = () => {
-  const form = document.getElementById("register-form");
-  if (!form) return;
-
-  const participantInput = document.getElementById("participant-id");
-  const resultPanel = document.getElementById("result");
-  const passwordDisplay = document.getElementById("generated-password");
-  const goLoginBtn = document.getElementById("go-login");
-
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const formData = new FormData(form);
-    const passwordType = formData.get("password-type");
-    const participantId = (participantInput?.value || "").trim();
-
-    const generatedPassword = passwordType === "emoji" ? randomEmojiPin() : randomDigitPin();
-    const registration = {
-      participant_id: participantId,
-      password_type: passwordType,
-      generated_password: generatedPassword,
-      created_at: new Date().toISOString(),
-    };
-
-    saveRegistration(registration);
-    passwordDisplay.textContent = generatedPassword;
-    resultPanel.classList.remove("hidden");
-    goLoginBtn.disabled = false;
-  });
-
-  goLoginBtn.addEventListener("click", () => {
-    window.location.href = "login.html";
-  });
-};
-
-// Create a keypad button and bind it to an input handler.
 const createKeyButton = (label, onClick) => {
   const btn = document.createElement("button");
   btn.type = "button";
@@ -100,6 +66,121 @@ const createKeyButton = (label, onClick) => {
   btn.addEventListener("click", () => onClick(label));
   return btn;
 };
+
+// fill keypad w/ passcode type, takes the keypad element and func for key handling
+const fillKeypad = (type, keypad, handleKey) => {
+  keypad.innerHTML = "";
+  keypad.className = `keypad ${type}`;
+
+  if (type === "emoji") {
+      EMOJI_LIST.forEach((emoji) => keypad.appendChild(createKeyButton(emoji, handleKey)));
+    } else {
+      ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].forEach((digit) => {
+        keypad.appendChild(createKeyButton(digit, handleKey));
+      });
+  }
+};
+
+// Initialize the register page if present.
+const setupRegisterPage = () => {
+  const form = document.getElementById("register-form");
+  if (!form) return;
+
+  const participantInput = document.getElementById("participant-id");
+  const confirmSec = document.getElementById("confirm-passcode");
+
+  const confirmDisplay = document.getElementById("confirm-display");
+  const confirmKeypad = document.getElementById("confirm-keypad");
+  const confirmForm = document.getElementById("result");
+  const confirmMessage = document.getElementById("confirm-message");
+  const confirmClearBtn = document.getElementById("confirm-clear");
+  const goLoginBtn = document.getElementById("go-login");
+  const passwordDisplay = document.getElementById("generated-password");
+
+  let pendingRegistration = "";
+  let confirmInput = [];
+
+  const renderConfirm = () => {
+    confirmDisplay.textContent = formatInputDisplay(confirmInput);
+  };
+
+  //generates password DOES NOT SAVE
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const passwordType = formData.get("password-type");
+    const participantId = (participantInput?.value || "").trim();
+
+    const generatedPassword = passwordType === "emoji" ? randomEmojiPin() : randomDigitPin();
+    pendingRegistration = {
+      participant_id: participantId,
+      password_type: passwordType,
+      generated_password: generatedPassword,
+      created_at: new Date().toISOString(),
+    };
+
+    passwordDisplay.textContent = generatedPassword;
+    confirmSec.classList.remove("hidden");
+    goLoginBtn.disabled = true; //need to confirm password, can't login yet
+    confirmMessage.classList.add("hidden");
+
+    confirmInput = [];
+    renderConfirm();
+
+    const handleKey = (val) => {
+      if (confirmInput.length < PIN_LENGTH) {
+        confirmInput.push(val);
+        renderConfirm();
+      }
+    };
+    
+    fillKeypad(passwordType, confirmKeypad, handleKey);
+  });
+
+  confirmClearBtn.addEventListener("click", () => {
+    confirmInput = [];
+    renderConfirm();
+  });
+
+  //saves passcode after confirmation
+  confirmForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    
+    if (!pendingRegistration) return;
+
+    const attempt = confirmInput.join("");
+    
+    if (attempt === pendingRegistration.generated_password) {
+      // MATCH: Save to storage
+      saveRegistration(pendingRegistration);
+      
+      confirmMessage.textContent = "Success! Account registered.";
+      confirmMessage.className = "message success";
+      goLoginBtn.disabled = false;
+      
+      confirmKeypad.innerHTML = ""; //shut down keypad, no typing after success
+    } else {
+      confirmMessage.textContent = "Incorrect. Please try entering the password again.";
+      confirmMessage.className = "message error";
+      confirmInput = [];
+      renderConfirm();
+    }
+  });
+
+  goLoginBtn.addEventListener("click", () => {
+    window.location.href = "login.html";
+  });
+
+};
+
+// Create a keypad button and bind it to an input handler.
+/*const createKeyButton = (label, onClick) => {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = label;
+  btn.addEventListener("click", () => onClick(label));
+  return btn;
+};*/
 
 // Initialize the login page if present.
 const setupLoginPage = () => {
@@ -128,11 +209,11 @@ const setupLoginPage = () => {
   let currentInput = [];
 
   const renderInput = () => {
-    inputDisplay.textContent = formatInputDisplay(currentInput, passwordType);
+    inputDisplay.textContent = formatInputDisplay(currentInput);
     updateLengthMeta(meta, currentInput.length);
   };
 
-  const pushInput = (value) => {
+  const handleKey = (value) => {
     if (currentInput.length >= PIN_LENGTH) return;
     currentInput = currentInput.concat(value);
     renderInput();
@@ -158,14 +239,16 @@ const setupLoginPage = () => {
   keypad.innerHTML = "";
   keypad.classList.add(passwordType === "emoji" ? "emoji" : "digits");
 
-  if (passwordType === "emoji") {
+  fillKeypad(passwordType, keypad, handleKey)
+
+  /*if (passwordType === "emoji") {
     hint.textContent = "Log in using the emoji password you registered.";
     EMOJI_LIST.forEach((emoji) => keypad.appendChild(createKeyButton(emoji, pushInput)));
   } else {
     hint.textContent = "Log in using the digits PIN you registered.";
     const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
     digits.forEach((digit) => keypad.appendChild(createKeyButton(digit, pushInput)));
-  }
+  }*/
 
   clearBtn.addEventListener("click", clearAll);
 

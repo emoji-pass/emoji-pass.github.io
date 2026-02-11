@@ -5,7 +5,17 @@ const EMOJI_LIST = ["😀", "😁", "😂", "🤣", "😅", "😊", "😎", "�
 
 const STORAGE_KEY = "hcs_emoji_auth";
 const CENSOR_CHAR = "●";
-const EMPTY_CHAR = "-"
+const EMPTY_CHAR = "-";
+
+/*Fisher-Yates alg to shuffle array
+Importance of alg: every permutation is equally likely*/
+const shuffleArray = (array) => {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+};
 
 // Save registration payload into localStorage.
 const saveRegistration = (payload) => {
@@ -68,17 +78,35 @@ const createKeyButton = (label, onClick) => {
 };
 
 // fill keypad w/ passcode type, takes the keypad element and func for key handling
-const fillKeypad = (type, keypad, handleKey) => {
+const fillKeypad = (type, keypad, handleKey, requiredChars = "") => {
   keypad.innerHTML = "";
   keypad.className = `keypad ${type}`;
 
-  if (type === "emoji") {
-      EMOJI_LIST.forEach((emoji) => keypad.appendChild(createKeyButton(emoji, handleKey)));
-    } else {
-      ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].forEach((digit) => {
-        keypad.appendChild(createKeyButton(digit, handleKey));
-      });
+  let keysToRender = [];
+
+  if (type === "digits") {
+    keysToRender = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+  } else {
+    /*Identify the passcode emojis */
+    const requiredSet = new Set([...requiredChars]);
+    const requiredArray = Array.from(requiredSet);
+
+    const availableExtras = EMOJI_LIST.filter(e => !requiredSet.has(e));
+
+    /*shuffle extra emojis to curb predictability */
+    const shuffledExtras = shuffleArray([...availableExtras]);
+
+    const slotsNeeded = 10 - requiredArray.length;
+    const selectedExtras = shuffledExtras.slice(0, slotsNeeded);
+
+    /*mix passcode + extras */
+    keysToRender = shuffleArray([...requiredArray, ...selectedExtras]);
   }
+
+  keysToRender.forEach((k) => {
+    keypad.appendChild(createKeyButton(k, handleKey));
+  });
+
 };
 
 // Initialize the register page if present.
@@ -134,7 +162,7 @@ const setupRegisterPage = () => {
       }
     };
     
-    fillKeypad(passwordType, confirmKeypad, handleKey);
+    fillKeypad(passwordType, confirmKeypad, handleKey, generatedPassword);
   });
 
   confirmClearBtn.addEventListener("click", () => {
@@ -172,15 +200,6 @@ const setupRegisterPage = () => {
   });
 
 };
-
-// Create a keypad button and bind it to an input handler.
-/*const createKeyButton = (label, onClick) => {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.textContent = label;
-  btn.addEventListener("click", () => onClick(label));
-  return btn;
-};*/
 
 // Initialize the login page if present.
 const setupLoginPage = () => {
@@ -239,16 +258,8 @@ const setupLoginPage = () => {
   keypad.innerHTML = "";
   keypad.classList.add(passwordType === "emoji" ? "emoji" : "digits");
 
-  fillKeypad(passwordType, keypad, handleKey)
-
-  /*if (passwordType === "emoji") {
-    hint.textContent = "Log in using the emoji password you registered.";
-    EMOJI_LIST.forEach((emoji) => keypad.appendChild(createKeyButton(emoji, pushInput)));
-  } else {
-    hint.textContent = "Log in using the digits PIN you registered.";
-    const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
-    digits.forEach((digit) => keypad.appendChild(createKeyButton(digit, pushInput)));
-  }*/
+  const storedPassword = registration.generated_password || "";
+  fillKeypad(passwordType, keypad, handleKey, storedPassword)
 
   clearBtn.addEventListener("click", clearAll);
 

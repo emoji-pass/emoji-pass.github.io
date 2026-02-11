@@ -133,7 +133,10 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .keypad {
   display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 columns of equal width */
   gap: 10px;
+  max-width: 300px;
+  margin: 0 auto;
 }
 
 .keypad.digits {
@@ -141,7 +144,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 
 .keypad.emoji {
-  grid-template-columns: repeat(4, minmax(60px, 1fr));
+  grid-template-columns: repeat(3, minmax(60px, 1fr));
 }
 
 .keypad button {
@@ -149,6 +152,10 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   border: 1px solid var(--border);
   font-size: 24px;
   padding: 14px 0;
+}
+
+.keypad button:last-child {
+  grid-column: 2; /* Forces it into the middle column */
 }
 
 #message {
@@ -161,6 +168,6 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 @media (max-width: 480px) {
   .keypad.digits { grid-template-columns: repeat(3, minmax(48px, 1fr)); }
-  .keypad.emoji { grid-template-columns: repeat(4, minmax(48px, 1fr)); }
+  .keypad.emoji { grid-template-columns: repeat(3, minmax(48px, 1fr)); }
   .password-display { font-size: 24px; }
 }

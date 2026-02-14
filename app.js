@@ -114,6 +114,17 @@ const setupRegisterPage = () => {
   const form = document.getElementById("register-form");
   if (!form) return;
 
+  //Admin logic
+  const adminCondition = localStorage.getItem('hcs_admin_condition');
+  const fieldset = form.querySelector('fieldset'); // find <fieldset> tag in the register form
+  const activeCondition = adminCondition || 'digits'; //defalut to "digits"
+  
+  if (fieldset) {
+    fieldset.style.display = 'none'; // hide the password type selection
+    const targetRadio = form.querySelector(`input[name="password-type"][value="${activeCondition}"]`);
+    if (targetRadio) targetRadio.checked = true; // auto check this button
+  }
+
   const participantInput = document.getElementById("participant-id");
   const confirmSec = document.getElementById("confirm-passcode");
 
@@ -199,6 +210,13 @@ const setupRegisterPage = () => {
     window.location.href = "login.html";
   });
 
+  // listen stroage change
+  window.addEventListener('storage', (event) => {
+  if (event.key === 'hcs_admin_condition') {
+    // once change in admin, refresh 
+    window.location.reload();
+  }
+});
 };
 
 // Initialize the login page if present.

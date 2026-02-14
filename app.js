@@ -66,7 +66,6 @@ const toggleExperimentStatus = (isOn) => {
     localStorage.setItem(EXPERIMENT_STATUS_KEY, JSON.stringify(isOn));
     updatePageByExperimentMode();
 }
-
 // Check if user is logged in by reading login state from localStorage.
 const isLoggedIn = () => {
   const raw = localStorage.getItem(LOGIN_STATE_KEY);

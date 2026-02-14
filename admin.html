@@ -1,69 +1,61 @@
 <!doctype html>
 <html>
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin Control Panel</title>
-  <link rel="stylesheet" href="styles.css" />
-  <style>
-    /* fix for radio button alignment on this page */
-    .admin-option {
-      display: flex !important;
-      flex-direction: row !important;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-      padding: 4px 0;
-    }
-    .admin-option input {
-      margin: 0;
-      width: 20px;
-      height: 20px;
-    }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Portal</title>
+    <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
-  <main class="container">
-    <h1>Admin Control Panel</h1>
-    <section class="card">
-      <h3>Set Password Type</h3>
-      <p class="hint">Select the password type for the participant. </p>
-      
-      <div style="display: flex; flex-direction: column; gap: 12px; margin: 1rem 0;">
-        <label class="admin-option">
-          <input type="radio" name="admin-choice" value="digits" checked /> 
-          Type A: Digital PIN
-        </label>
-        <label class="admin-option">
-          <input type="radio" name="admin-choice" value="emoji" /> 
-          Type B: Emoji PIN
-        </label>
-      </div>
+    <header>
+        <div id="top-bar">
+            <a href="./index.html" id="logo-container-link"><img id="logo" src="resources/logo.png"
+                    alt="emojipass Logo"></a>
+            <nav>
+                <ul>
+                    <a href="./index.html" class="nav-link">
+                        <li>Home</li>
+                    </a>
+                    <a href="./admin.html" class="nav-link experiment-hidden-toggle">
+                        <p>Admin</p>
+                    </a>
+                </ul>
+            </nav>
+            <div id="register-login-widget">
+                <a href="./login.html" class="nav-link">
+                    <p>Login</p>
+                </a>
+                <a href="./register.html" class="nav-link">
+                    <p>Register</p>
+                </a>
+            </div>
+        </div>
+    </header>
+    <main class="container">
+        <h1>Admin Portal</h1>
+        <p id="login-hint" class="hint">Toggle the local admin settings for the site.</p>
 
-      <button id="save-config" class="primary">Save Configuration</button>
-      <p id="admin-msg" class="hint" style="color: green; font-weight: bold;"></p>
-    </section>
+        <img class="small-image" src="./resources/admin-banner.svg">
 
-    <div class="actions">
-      <a class="link" href="register.html">← Go to Registration Page</a>
-    </div>
-  </main>
+        <section class="card">
+            <h3>Set Password Type</h3>
+            <p class="hint">Select the password type for the participant. </p>
 
-  <script>
-    const saveBtn = document.getElementById('save-config');
-    const msg = document.getElementById('admin-msg');
-    const STORAGE_KEY = 'hcs_admin_condition';
+            <div class="actions">
+                <button id="clear" class="ghost" onclick="toggleExperimentStatus(false)">Experiment Off</button>
+                <button id="login" class="primary" onclick="toggleExperimentStatus(true)">Experiment On</button>
+            </div>
 
-    // save configuration to localStorage
-    saveBtn.addEventListener('click', () => {
-      const selected = document.querySelector('input[name="admin-choice"]:checked').value;
-      localStorage.setItem(STORAGE_KEY, selected);
-      msg.textContent = "Configuration saved! Type set to: " + selected.toUpperCase();
-    });
+            <div class="actions">
+                <button id="clear" class="ghost" onclick="saveExperimentCondition('emoji')">Emoji</button>
+                <button id="login" class="primary" onclick="saveExperimentCondition('digits')">Digits</button>
+            </div>
+        </section>
+    </main>
 
-    // load existing setting on page load
-    const current = localStorage.getItem(STORAGE_KEY) || 'digits';
-    document.querySelector(`input[value="${current}"]`).checked = true;
-  </script>
+    <script src="app.js"></script>
 </body>
+
 </html>

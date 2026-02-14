@@ -1,10 +1,10 @@
-﻿<!doctype html>
+<!doctype html>
 <html>
 
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Login</title>
+  <title>My Account</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -33,27 +33,11 @@
     </div>
   </header>
   <main class="container">
-    <h1>Login</h1>
+    <h1>My Account</h1>
     <p id="login-hint" class="hint">Use the password generated at registration.</p>
-    <img class="small-image" src="./resources/login-banner.svg">
-    <section id="login-panel" class="card">
-      <div class="input-row">
-        <div id="input-display" class="input-display" aria-live="polite">----</div>
-        <div id="input-meta" class="hint">Length 0 / 4</div>
-      </div>
-
-      <div id="keypad" class="keypad"></div>
-
-      <div class="actions">
-        <button id="clear" class="ghost">Clear</button>
-        <button id="login" class="primary">Login</button>
-      </div>
-    </section>
-
-    <section id="message" class="card hidden" aria-live="polite"></section>
-
+    <img class="banner-image" src="./resources/profile-banner.svg">
     <div class="actions">
-      <a class="link" href="register.html">Back to Register</a>
+      <button id="logout" class="primary" onclick="logout()">Logout</button>
     </div>
   </main>
 

@@ -1,16 +1,41 @@
 ﻿<!doctype html>
 <html>
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Register</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
+  <header>
+    <div id="top-bar">
+      <a href="./index.html" id="logo-container-link"><img id="logo" src="resources/logo.png" alt="emojipass Logo"></a>
+      <nav>
+        <ul>
+          <a href="./index.html" class="nav-link">
+            <li>Home</li>
+          </a>
+          <a href="./admin.html" class="nav-link experiment-hidden-toggle">
+            <p>Admin</p>
+          </a>
+        </ul>
+      </nav>
+      <div id="register-login-widget">
+        <a href="./login.html" class="nav-link">
+          <p>Login</p>
+        </a>
+        <a href="./register.html" class="nav-link">
+          <p>Register</p>
+        </a>
+      </div>
+    </div>
+  </header>
   <main class="container">
     <h1>Register</h1>
     <p class="hint">The system will generate a random password (digits or emoji). Users cannot choose their own.</p>
-
+    <img class="banner-image" src="./resources/register-banner.svg">
     <form id="register-form" class="card" autocomplete="off">
       <label>
         Participant ID (optional)
@@ -35,12 +60,12 @@
 
       <h3>Confirm Password</h3>
       <div id="confirm-display" class="input-display" style="margin-bottom: 1rem;">----</div>
-      
+
       <div id="confirm-keypad" class="keypad"></div>
 
       <form id="result" aria-live="polite" style="margin-top: 1rem;">
         <p id="confirm-message" class="message hidden"></p>
-        
+
         <div class="actions">
           <button type="button" id="confirm-clear" class="secondary">Clear</button>
           <button type="submit" class="primary">Confirm & Save</button>
@@ -55,4 +80,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>

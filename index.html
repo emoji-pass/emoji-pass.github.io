@@ -1,5 +1,46 @@
-<h1>Heading</h1>
-<p>Test deploy</p>
+<!doctype html>
+<html>
 
-<!-- Added by Zhixuan -->
-<!--Ray: testing branchign + merging-->
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <header>
+        <div id="top-bar">
+            <a href="./index.html" id="logo-container-link"><img id="logo" src="resources/logo.png"
+                    alt="emojipass Logo"></a>
+            <nav>
+                <ul>
+                    <a href="./index.html" class="nav-link">
+                        <li>Home</li>
+                    </a>
+                    <a href="./admin.html" class="nav-link experiment-hidden-toggle">
+                        <p>Admin</p>
+                    </a>
+                </ul>
+            </nav>
+            <div id="register-login-widget">
+                <a href="./login.html" class="nav-link">
+                    <p>Login</p>
+                </a>
+                <a href="./register.html" class="nav-link">
+                    <p>Register</p>
+                </a>
+            </div>
+        </div>
+    </header>
+    <main class="container">
+        <h1>Home</h1>
+        <p id="login-hint" class="hint">Welcome to emojipass!</p>
+
+        <img class="banner-image" src="./resources/security-banner.svg">
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

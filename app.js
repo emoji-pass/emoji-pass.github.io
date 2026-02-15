@@ -38,6 +38,7 @@ const readRegistration = () => {
 
 const saveExperimentCondition = (payload) => {
   localStorage.setItem(EXPERIMENT_CONDITION_KEY, JSON.stringify(payload));
+      updateAdminPageByExperimentCondition();
 }
 
 // Save login state to localStorage.
@@ -65,7 +66,9 @@ const isExperiment = () => {
 const toggleExperimentStatus = (isOn) => {
     localStorage.setItem(EXPERIMENT_STATUS_KEY, JSON.stringify(isOn));
     updatePageByExperimentMode();
+    updateAdminPageByExperimentStatus();
 }
+
 // Check if user is logged in by reading login state from localStorage.
 const isLoggedIn = () => {
   const raw = localStorage.getItem(LOGIN_STATE_KEY);
@@ -76,6 +79,16 @@ const isLoggedIn = () => {
     return false;
   }
 };
+
+const isEmojiMode = () => {
+  const raw = localStorage.getItem(EXPERIMENT_CONDITION_KEY);
+  if (!raw) return false;
+  try {
+    return JSON.parse(raw) === "emoji";
+  } catch {
+    return false;
+  }  
+}
 
 // Generate a random numeric PIN (digits can repeat).
 const randomDigitPin = () => {
@@ -159,6 +172,74 @@ const updatePageByLogin = () => {
 
   if (isLoggedIn()) {
     widget.innerHTML = "<a href=\"./account.html\" class=\"nav-link\"><p>My Account</p></a><a href=\"./account.html\"><img id=\"profile-picture\" src=\"resources/profile.png\" alt=\"Profile picture placeholder\"></a>";
+  }
+};
+
+const updateAdminPageByExperimentStatus = () => {
+  const experimentOnLabel = document.getElementById("experiment-on");
+  if (!experimentOnLabel) return;
+
+  if (isExperiment()) {
+    if (experimentOnLabel.classList.contains("ghost")) {
+      experimentOnLabel.classList.remove("ghost");
+      experimentOnLabel.classList.add("primary");
+    }
+  }
+  else {
+    if (experimentOnLabel.classList.contains("primary")) {
+      experimentOnLabel.classList.remove("primary");
+      experimentOnLabel.classList.add("ghost");
+    }    
+  }
+
+  const experimentOffLabel = document.getElementById("experiment-off");
+  if (!experimentOffLabel) return;
+
+  if (!isExperiment()) {
+    if (experimentOffLabel.classList.contains("ghost")) {
+      experimentOffLabel.classList.remove("ghost");
+      experimentOffLabel.classList.add("primary");
+    }
+  }
+  else {
+    if (experimentOffLabel.classList.contains("primary")) {
+      experimentOffLabel.classList.remove("primary");
+      experimentOffLabel.classList.add("ghost");
+    }    
+  }
+};
+
+const updateAdminPageByExperimentCondition = () => {
+  const emojiLabel = document.getElementById("emoji-mode");
+  if (!emojiLabel) return;
+
+  if (isEmojiMode()) {
+    if (emojiLabel.classList.contains("ghost")) {
+      emojiLabel.classList.remove("ghost");
+      emojiLabel.classList.add("primary");
+    }
+  }
+  else {
+    if (emojiLabel.classList.contains("primary")) {
+      emojiLabel.classList.remove("primary");
+      emojiLabel.classList.add("ghost");
+    }    
+  }
+
+  const digitsLabel = document.getElementById("digits-mode");
+  if (!digitsLabel) return;
+
+  if (!isEmojiMode()) {
+    if (digitsLabel.classList.contains("ghost")) {
+      digitsLabel.classList.remove("ghost");
+      digitsLabel.classList.add("primary");
+    }
+  }
+  else {
+    if (digitsLabel.classList.contains("primary")) {
+      digitsLabel.classList.remove("primary");
+      digitsLabel.classList.add("ghost");
+    }    
   }
 };
 
@@ -383,3 +464,5 @@ setupRegisterPage();
 setupLoginPage();
 updatePageByLogin();
 updatePageByExperimentMode();
+updateAdminPageByExperimentCondition();
+updateAdminPageByExperimentStatus();

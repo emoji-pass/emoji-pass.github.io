@@ -82,12 +82,22 @@ const isLoggedIn = () => {
 
 const isEmojiMode = () => {
   const raw = localStorage.getItem(EXPERIMENT_CONDITION_KEY);
-  if (!raw) return false;
+  if (!raw) return true;
   try {
     return JSON.parse(raw) === "emoji";
   } catch {
-    return false;
+    // default to true
+    return true;
   }  
+}
+
+const getExperimentCondition = () => {
+  if (isEmojiMode()) {
+    return "emoji";
+  }
+  else {
+    return "digits";
+  }
 }
 
 // Generate a random numeric PIN (digits can repeat).
@@ -261,7 +271,7 @@ const setupRegisterPage = () => {
   //Admin logic
   const adminCondition = localStorage.getItem('hcs_experiment_condition');
   const fieldset = form.querySelector('fieldset'); // find <fieldset> tag in the register form
-  const activeCondition = adminCondition || 'digits'; //defalut to "digits"
+  const activeCondition = adminCondition || 'emoji'; //defalut to "digits"
   
   if (fieldset) {
     fieldset.style.display = 'none'; // hide the password type selection
@@ -386,7 +396,7 @@ const setupLoginPage = () => {
     return;
   }
 
-  const passwordType = registration.password_type || "digits";
+  const passwordType = getExperimentCondition();
   let currentInput = [];
 
   const renderInput = () => {

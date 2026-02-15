@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Login</title>
+    <title>Home</title>
     <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -15,8 +15,8 @@
                     alt="emojipass Logo"></a>
             <nav>
                 <ul>
-                    <a href="./index.html" class="nav-link">
-                        <li>Home</li>
+                    <a href="./index.html" class="nav-link active-page">
+                        <p>Home</p>
                     </a>
                     <a href="./admin.html" class="nav-link experiment-hidden-toggle">
                         <p>Admin</p>
@@ -31,13 +31,50 @@
                     <p>Register</p>
                 </a>
             </div>
+            <button id="hamburger-menu" class="hamburger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <div id="mobile-menu" class="mobile-menu">
+            <a href="./login.html" class="mobile-nav-link mobile-login-link">
+                <p>Login</p>
+            </a>
+            <a href="./register.html" class="mobile-nav-link mobile-register-link">
+                <p>Register</p>
+            </a>
+            <a href="./account.html" class="mobile-nav-link mobile-account-link" style="display: none;">
+                <p>My Account</p>
+            </a>
+            <a href="./index.html" class="mobile-nav-link active-page">
+                <p>Home</p>
+            </a>
+            <a href="./admin.html" class="mobile-nav-link experiment-hidden-toggle">
+                <p>Admin</p>
+            </a>
         </div>
     </header>
     <main class="container">
         <h1>Home</h1>
-        <p id="login-hint" class="hint">Welcome to emojipass!</p>
+        <p id="login-hint" class="hint">Welcome to emojipass! This is a website created by HCS Group AD to demonstrate a comparison of login functionality with pins using either digits or emojis.</p>
 
-        <img class="banner-image" src="./resources/security-banner.svg">
+        <div class="home-content-banner">
+            <img class="home-banner-image apply-margin-right" src="./resources/security-banner.svg">
+            <p class="hint home-banner-text">The system has been implemented to mimic a real website, to evaluate both the usability and memorability of both emoji and digit pins. However, this is just a mockup - account access and registration is simulated using localstorage, and an external Firebase database is used with a one-way connection so that experiment facilitators can add participant details so they can attempt login at home.</p>
+        </div>
+
+        <h2 id="home-content-header">The Experiment</h2>
+
+        <div class="home-content-banner">
+            <p class="hint home-banner-text apply-margin-right">An experiment facilitator is able to toggle the site between either using the emoji pin condition or the digit pin condition using an admin interface which is hid during the experiment. This allows us to easily compare the two conditions in the same setting without relying on seperate deployments. As the experiment will likely be conducted on participants' own devices, and these configurations are stored in localstorage, a participant should be able to access the same configuration from home without further input from the experiment facilitators.</p>
+            <img class="home-banner-image" src="./resources/split-banner.svg">
+        </div>
+
+        <div class="home-content-banner">
+            <img class="home-banner-image apply-margin-right" src="./resources/data-banner.svg">
+            <p class=" hint home-banner-text">During the experiment, data will be collected on success or failure during logins with the associated condition, and following this, a survey will be used to guage participants' opinions and feelings towards the systems respectively.</p>
+        </div>
     </main>
 
     <script src="app.js"></script>

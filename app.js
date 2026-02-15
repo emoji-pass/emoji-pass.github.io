@@ -183,6 +183,23 @@ const updatePageByLogin = () => {
   if (isLoggedIn()) {
     widget.innerHTML = "<a href=\"./account.html\" class=\"nav-link\"><p>My Account</p></a><a href=\"./account.html\"><img id=\"profile-picture\" src=\"resources/profile.png\" alt=\"Profile picture placeholder\"></a>";
   }
+
+  // Update mobile menu
+  const mobileLoginLink = document.querySelector(".mobile-login-link");
+  const mobileRegisterLink = document.querySelector(".mobile-register-link");
+  const mobileAccountLink = document.querySelector(".mobile-account-link");
+
+  if (mobileLoginLink && mobileRegisterLink && mobileAccountLink) {
+    if (isLoggedIn()) {
+      mobileLoginLink.style.display = "none";
+      mobileRegisterLink.style.display = "none";
+      mobileAccountLink.style.display = "flex";
+    } else {
+      mobileLoginLink.style.display = "flex";
+      mobileRegisterLink.style.display = "flex";
+      mobileAccountLink.style.display = "none";
+    }
+  }
 };
 
 const updateAdminPageByExperimentStatus = () => {
@@ -255,11 +272,11 @@ const updateAdminPageByExperimentCondition = () => {
 
 const updatePageByExperimentMode = () => {
   document.querySelectorAll('.experiment-hidden-toggle').forEach((item) => {
-    if (isExperiment()) {
-      item.style.display = "none";
+    if (!isExperiment()) {
+      item.style.display = "flex";
     }
     else {
-      item.style.display = "flex";
+      item.style.display = "none";
     }
   });
 }
@@ -476,3 +493,22 @@ updatePageByLogin();
 updatePageByExperimentMode();
 updateAdminPageByExperimentCondition();
 updateAdminPageByExperimentStatus();
+
+// Hamburger menu toggle
+const hamburgerMenu = document.getElementById("hamburger-menu");
+const mobileMenu = document.getElementById("mobile-menu");
+
+if (hamburgerMenu && mobileMenu) {
+  hamburgerMenu.addEventListener("click", () => {
+    hamburgerMenu.classList.toggle("active");
+    mobileMenu.classList.toggle("active");
+  });
+
+  // Close menu when a link is clicked
+  mobileMenu.querySelectorAll(".mobile-nav-link").forEach((link) => {
+    link.addEventListener("click", () => {
+      hamburgerMenu.classList.remove("active");
+      mobileMenu.classList.remove("active");
+    });
+  });
+}

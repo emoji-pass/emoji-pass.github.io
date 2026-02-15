@@ -4,9 +4,6 @@ const MAX_EMOJI_REPEAT = 2;
 const EMOJI_LIST = ["😀", "😁", "😂", "🤣", "😅", "😊", "😎", "😍", "😘", "🤔", "😴", "😡", "🤯", "🥳", "😈", "🤖"];
 
 const STORAGE_KEY = "hcs_emoji_auth";
-const LOGIN_STATE_KEY = "hcs_logged_in";
-const EXPERIMENT_STATUS_KEY = "hcs_experiment_mode"
-const EXPERIMENT_CONDITION_KEY = 'hcs_experiment_condition';
 const CENSOR_CHAR = "●";
 const EMPTY_CHAR = "-";
 
@@ -35,60 +32,6 @@ const readRegistration = () => {
     return null;
   }
 };
-
-const saveExperimentCondition = (payload) => {
-  localStorage.setItem(EXPERIMENT_CONDITION_KEY, JSON.stringify(payload));
-      updateAdminPageByExperimentCondition();
-}
-
-// Save login state to localStorage.
-const saveLoginState = (payload) => {
-  localStorage.setItem(LOGIN_STATE_KEY, JSON.stringify(payload));
-};
-
-const logout = () => {
-  saveLoginState(false);
-  updatePageByLogin();
-  window.location.href="./login.html"
-}
-
-// Check if the website is currently in experiment mode.
-const isExperiment = () => {
-  const raw = localStorage.getItem(EXPERIMENT_STATUS_KEY);
-  if (!raw) return false;
-  try {
-    return JSON.parse(raw) === true;
-  } catch {
-    return false;
-  }
-}
-
-const toggleExperimentStatus = (isOn) => {
-    localStorage.setItem(EXPERIMENT_STATUS_KEY, JSON.stringify(isOn));
-    updatePageByExperimentMode();
-    updateAdminPageByExperimentStatus();
-}
-
-// Check if user is logged in by reading login state from localStorage.
-const isLoggedIn = () => {
-  const raw = localStorage.getItem(LOGIN_STATE_KEY);
-  if (!raw) return false;
-  try {
-    return JSON.parse(raw) === true;
-  } catch {
-    return false;
-  }
-};
-
-const isEmojiMode = () => {
-  const raw = localStorage.getItem(EXPERIMENT_CONDITION_KEY);
-  if (!raw) return false;
-  try {
-    return JSON.parse(raw) === "emoji";
-  } catch {
-    return false;
-  }  
-}
 
 // Generate a random numeric PIN (digits can repeat).
 const randomDigitPin = () => {
@@ -166,106 +109,19 @@ const fillKeypad = (type, keypad, handleKey, requiredChars = "") => {
 
 };
 
-const updatePageByLogin = () => {
-  const widget = document.getElementById("register-login-widget");
-  if (!widget) return;
-
-  if (isLoggedIn()) {
-    widget.innerHTML = "<a href=\"./account.html\" class=\"nav-link\"><p>My Account</p></a><a href=\"./account.html\"><img id=\"profile-picture\" src=\"resources/profile.png\" alt=\"Profile picture placeholder\"></a>";
-  }
-};
-
-const updateAdminPageByExperimentStatus = () => {
-  const experimentOnLabel = document.getElementById("experiment-on");
-  if (!experimentOnLabel) return;
-
-  if (isExperiment()) {
-    if (experimentOnLabel.classList.contains("ghost")) {
-      experimentOnLabel.classList.remove("ghost");
-      experimentOnLabel.classList.add("primary");
-    }
-  }
-  else {
-    if (experimentOnLabel.classList.contains("primary")) {
-      experimentOnLabel.classList.remove("primary");
-      experimentOnLabel.classList.add("ghost");
-    }    
-  }
-
-  const experimentOffLabel = document.getElementById("experiment-off");
-  if (!experimentOffLabel) return;
-
-  if (!isExperiment()) {
-    if (experimentOffLabel.classList.contains("ghost")) {
-      experimentOffLabel.classList.remove("ghost");
-      experimentOffLabel.classList.add("primary");
-    }
-  }
-  else {
-    if (experimentOffLabel.classList.contains("primary")) {
-      experimentOffLabel.classList.remove("primary");
-      experimentOffLabel.classList.add("ghost");
-    }    
-  }
-};
-
-const updateAdminPageByExperimentCondition = () => {
-  const emojiLabel = document.getElementById("emoji-mode");
-  if (!emojiLabel) return;
-
-  if (isEmojiMode()) {
-    if (emojiLabel.classList.contains("ghost")) {
-      emojiLabel.classList.remove("ghost");
-      emojiLabel.classList.add("primary");
-    }
-  }
-  else {
-    if (emojiLabel.classList.contains("primary")) {
-      emojiLabel.classList.remove("primary");
-      emojiLabel.classList.add("ghost");
-    }    
-  }
-
-  const digitsLabel = document.getElementById("digits-mode");
-  if (!digitsLabel) return;
-
-  if (!isEmojiMode()) {
-    if (digitsLabel.classList.contains("ghost")) {
-      digitsLabel.classList.remove("ghost");
-      digitsLabel.classList.add("primary");
-    }
-  }
-  else {
-    if (digitsLabel.classList.contains("primary")) {
-      digitsLabel.classList.remove("primary");
-      digitsLabel.classList.add("ghost");
-    }    
-  }
-};
-
-const updatePageByExperimentMode = () => {
-  document.querySelectorAll('.experiment-hidden-toggle').forEach((item) => {
-    if (isExperiment()) {
-      item.style.display = "none";
-    }
-    else {
-      item.style.display = "flex";
-    }
-  });
-}
 // Initialize the register page if present.
 const setupRegisterPage = () => {
   const form = document.getElementById("register-form");
   if (!form) return;
 
   //Admin logic
-  const adminCondition = localStorage.getItem('hcs_experiment_condition');
+  const adminCondition = localStorage.getItem('hcs_admin_condition');
   const fieldset = form.querySelector('fieldset'); // find <fieldset> tag in the register form
   const activeCondition = adminCondition || 'digits'; //defalut to "digits"
   
   if (fieldset) {
     fieldset.style.display = 'none'; // hide the password type selection
-    const targetRadio = form.querySelector(`input[name="password-type"][value=${activeCondition}]`);
+    const targetRadio = form.querySelector(`input[name="password-type"][value="${activeCondition}"]`);
     if (targetRadio) targetRadio.checked = true; // auto check this button
   }
 
@@ -448,8 +304,6 @@ const setupLoginPage = () => {
     }
     const inputValue = currentInput.join("");
     if (inputValue === registration.generated_password) {
-      saveLoginState(true);
-      updatePageByLogin();
       showMessage("Login successful ✅", "success");
     } else {
       showMessage("Incorrect password, try again.", "error");
@@ -462,7 +316,3 @@ const setupLoginPage = () => {
 
 setupRegisterPage();
 setupLoginPage();
-updatePageByLogin();
-updatePageByExperimentMode();
-updateAdminPageByExperimentCondition();
-updateAdminPageByExperimentStatus();

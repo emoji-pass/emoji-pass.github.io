@@ -163,11 +163,11 @@ const fillKeypad = (type, keypad, handleKey, requiredChars = "") => {
     const slotsNeeded = 10 - requiredArray.length;
 
     // experiment ON: no randomisation, fixed extras and fixed order
-    if (isExperiment()){
+    if (isExperiment()){ // fix order, not shuffle
       const selectedExtras= availableExtras.slice(0, slotsNeeded);
       keysToRender= [...requiredArray, ...selectedExtras];
     }
-    else{
+    else{ //keep random 
       const shuffledExtras = shuffleArray([...availableExtras]);
       const selectedExtras = shuffledExtras.slice(0, slotsNeeded);
       keysToRender= shuffleArray([...requiredArray, ...selectedExtras])

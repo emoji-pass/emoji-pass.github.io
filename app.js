@@ -314,6 +314,21 @@ const setupRegisterPage = () => {
     confirmDisplay.textContent = formatInputDisplay(confirmInput);
   };
 
+  const generateBtn = document.getElementById("generate-btn");
+
+  const updateRegButtonState = () => {
+    //id can't be spaces
+    const isValid = participantInput.value.trim().length > 0; 
+    generateBtn.disabled = !isValid;
+  };
+
+  if (participantInput && generateBtn) {
+    participantInput.addEventListener("input", updateRegButtonState);
+    
+    //load once incase of autofill or if user went back a page
+    updateRegButtonState(); 
+  }
+
   //generates password DOES NOT SAVE
   form.addEventListener("submit", (event) => {
     event.preventDefault();

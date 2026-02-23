@@ -7,6 +7,8 @@ const STORAGE_KEY = "hcs_emoji_auth";
 const LOGIN_STATE_KEY = "hcs_logged_in";
 const EXPERIMENT_STATUS_KEY = "hcs_experiment_mode"
 const EXPERIMENT_CONDITION_KEY = 'hcs_experiment_condition';
+const EMOJI_MODE_DEFAULT = true;
+const EXPERIMENT_MODE_DEFAULT = true;
 const CENSOR_CHAR = "●";
 const EMPTY_CHAR = "-";
 
@@ -51,7 +53,8 @@ const readRegistration = async (participantId = null) => {
 
 const saveExperimentCondition = (payload) => {
   localStorage.setItem(EXPERIMENT_CONDITION_KEY, JSON.stringify(payload));
-      updateAdminPageByExperimentCondition();
+  updateAdminPageByExperimentCondition();
+  updateHeaderByExperimentCondition();
 }
 
 // Save login state to localStorage.
@@ -68,11 +71,11 @@ const logout = () => {
 // Check if the website is currently in experiment mode.
 const isExperiment = () => {
   const raw = localStorage.getItem(EXPERIMENT_STATUS_KEY);
-  if (!raw) return false;
+  if (!raw) return EXPERIMENT_MODE_DEFAULT;
   try {
     return JSON.parse(raw) === true;
   } catch {
-    return false;
+    return EXPERIMENT_MODE_DEFAULT;
   }
 }
 
@@ -99,8 +102,8 @@ const isEmojiMode = () => {
   try {
     return JSON.parse(raw) === "emoji";
   } catch {
-    // default to true
-    return true;
+    // default to emoji mode default
+    return EMOJI_MODE_DEFAULT;
   }  
 }
 
@@ -287,15 +290,17 @@ const updateAdminPageByExperimentCondition = () => {
   }
 };
 
-// Storage mode management - wrapper function for admin controls
-window.setStorageMode = (mode) => {
-  if (window.StorageModule) {
-    const success = window.StorageModule.setStorageMode(mode);
-    if (success) {
-      console.log(`Storage mode set to: ${mode}`);
-      updateAdminPageByStorageMode();
+const setupStorageMode = () => {
+  // Storage mode management - wrapper function for admin controls
+  window.setStorageMode = (mode) => {
+    if (window.StorageModule) {
+      const success = window.StorageModule.setStorageMode(mode);
+      if (success) {
+        console.log(`Storage mode set to: ${mode}`);
+        updateAdminPageByStorageMode();
+      }
     }
-  }
+  };
 };
 
 const updateAdminPageByStorageMode = () => {
@@ -337,6 +342,22 @@ const updatePageByExperimentMode = () => {
     }
   });
 }
+
+const isDefaultMode = () => {
+  return (isEmojiMode() == EMOJI_MODE_DEFAULT);
+}
+
+const updateHeaderByExperimentCondition = () => {
+  const logo = document.getElementById("logo");
+  if (!logo) return;
+
+  console.log(isDefaultMode());
+
+  if (!isDefaultMode()) {
+    logo.src = "resources/alternative-logo.png";
+  }
+}
+
 // Initialize the register page if present.
 const setupRegisterPage = () => {
   const form = document.getElementById("register-form");
@@ -581,29 +602,39 @@ const setupLoginPage = async () => {
   renderInput();
 };
 
-setupRegisterPage();
-setupLoginPage();
-updatePageByLogin();
-updatePageByExperimentMode();
-updateAdminPageByExperimentCondition();
-updateAdminPageByExperimentStatus();
-updateAdminPageByStorageMode();
+const setupHamburgerMenu = () => {
+  // Hamburger menu toggle
+  const hamburgerMenu = document.getElementById("hamburger-menu");
+  const mobileMenu = document.getElementById("mobile-menu");
 
-// Hamburger menu toggle
-const hamburgerMenu = document.getElementById("hamburger-menu");
-const mobileMenu = document.getElementById("mobile-menu");
-
-if (hamburgerMenu && mobileMenu) {
-  hamburgerMenu.addEventListener("click", () => {
-    hamburgerMenu.classList.toggle("active");
-    mobileMenu.classList.toggle("active");
-  });
-
-  // Close menu when a link is clicked
-  mobileMenu.querySelectorAll(".mobile-nav-link").forEach((link) => {
-    link.addEventListener("click", () => {
-      hamburgerMenu.classList.remove("active");
-      mobileMenu.classList.remove("active");
+  if (hamburgerMenu && mobileMenu) {
+    hamburgerMenu.addEventListener("click", () => {
+      hamburgerMenu.classList.toggle("active");
+      mobileMenu.classList.toggle("active");
     });
-  });
+
+    // Close menu when a link is clicked
+    mobileMenu.querySelectorAll(".mobile-nav-link").forEach((link) => {
+      link.addEventListener("click", () => {
+        hamburgerMenu.classList.remove("active");
+        mobileMenu.classList.remove("active");
+      });
+    });
+  }
+};
+
+const updateHeader = () => {
+  updatePageByLogin();
+  updateHeaderByExperimentCondition();
+  updatePageByExperimentMode();
+  setupHamburgerMenu();
+}
+
+const updatePage = () => {
+  setupRegisterPage();
+  setupLoginPage();
+  updateAdminPageByExperimentCondition();
+  updateAdminPageByExperimentStatus();
+  updateAdminPageByStorageMode();
+  setupStorageMode();
 }

@@ -16,7 +16,7 @@
             <nav>
                 <ul>
                     <a href="./index.html" class="nav-link">
-                        <li>Home</li>
+                        <p>Home</p>
                     </a>
                     <a href="./admin.html" class="nav-link experiment-hidden-toggle">
                         <p>Admin</p>
@@ -31,6 +31,28 @@
                     <p>Register</p>
                 </a>
             </div>
+            <button id="hamburger-menu" class="hamburger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <div id="mobile-menu" class="mobile-menu">
+            <a href="./login.html" class="mobile-nav-link mobile-login-link">
+                <p>Login</p>
+            </a>
+            <a href="./register.html" class="mobile-nav-link mobile-register-link">
+                <p>Register</p>
+            </a>
+            <a href="./account.html" class="mobile-nav-link mobile-account-link" style="display: none;">
+                <p>My Account</p>
+            </a>
+            <a href="./index.html" class="mobile-nav-link">
+                <p>Home</p>
+            </a>
+            <a href="./admin.html" class="mobile-nav-link experiment-hidden-toggle active-page">
+                <p>Admin</p>
+            </a>
         </div>
     </header>
     <main class="container">
@@ -40,13 +62,16 @@
         <img class="small-image" src="./resources/admin-banner.svg">
 
         <section class="card">
-            <h3>Set Password Type</h3>
-            <p class="hint">Select the password type for the participant. </p>
+            <h3>Toggle Experiment Mode</h3>
+            <p class="hint">Configure whether the system is primed for experiments - this will hide the admin panel option from the user.</p>
 
             <div class="actions">
                 <button id="experiment-off" class="ghost" onclick="toggleExperimentStatus(false)">Experiment Off</button>
                 <button id="experiment-on" class="primary" onclick="toggleExperimentStatus(true)">Experiment On</button>
             </div>
+
+            <h3>Set Password Type</h3>
+            <p class="hint">Select the password type for the participant. </p>
 
             <div class="actions">
                 <button id="emoji-mode" class="ghost" onclick="saveExperimentCondition('emoji')">Emoji</button>

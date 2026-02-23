@@ -15,7 +15,7 @@
       <nav>
         <ul>
           <a href="./index.html" class="nav-link">
-            <li>Home</li>
+            <p>Home</p>
           </a>
           <a href="./admin.html" class="nav-link experiment-hidden-toggle">
             <p>Admin</p>
@@ -30,12 +30,35 @@
           <p>Register</p>
         </a>
       </div>
+      <button id="hamburger-menu" class="hamburger-menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="mobile-menu" class="mobile-menu">
+      <a href="./login.html" class="mobile-nav-link mobile-login-link">
+        <p>Login</p>
+      </a>
+      <a href="./register.html" class="mobile-nav-link mobile-register-link">
+        <p>Register</p>
+      </a>
+      <a href="./account.html" class="mobile-nav-link mobile-account-link active-page" style="display: none;">
+        <p>My Account</p>
+      </a>
+      <a href="./index.html" class="mobile-nav-link">
+        <p>Home</p>
+      </a>
+      <a href="./admin.html" class="mobile-nav-link experiment-hidden-toggle">
+        <p>Admin</p>
+      </a>
     </div>
   </header>
   <main class="container">
     <h1>My Account</h1>
-    <p id="login-hint" class="hint">Use the password generated at registration.</p>
+    <p id="login-hint" class="hint">Welcome to your account page.</p>
     <img class="banner-image" src="./resources/profile-banner.svg">
+    <p id="login-hint" class="hint">Click on the button now in order to sign out of your account.</p>
     <div class="actions">
       <button id="logout" class="primary" onclick="logout()">Logout</button>
     </div>

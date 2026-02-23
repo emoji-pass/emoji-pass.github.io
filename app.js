@@ -173,14 +173,18 @@ const fillKeypad = (type, keypad, handleKey, requiredChars = "") => {
 
     const availableExtras = EMOJI_LIST.filter(e => !requiredSet.has(e));
 
-    /*shuffle extra emojis to curb predictability */
-    const shuffledExtras = shuffleArray([...availableExtras]);
-
     const slotsNeeded = 10 - requiredArray.length;
-    const selectedExtras = shuffledExtras.slice(0, slotsNeeded);
 
-    /*mix passcode + extras */
-    keysToRender = shuffleArray([...requiredArray, ...selectedExtras]);
+    // experiment ON: no randomisation, fixed extras and fixed order
+    if (isExperiment()){ // fix order, not shuffle
+      const selectedExtras= availableExtras.slice(0, slotsNeeded);
+      keysToRender= [...requiredArray, ...selectedExtras];
+    }
+    else{ //keep random 
+      const shuffledExtras = shuffleArray([...availableExtras]);
+      const selectedExtras = shuffledExtras.slice(0, slotsNeeded);
+      keysToRender= shuffleArray([...requiredArray, ...selectedExtras])
+    }
   }
 
   keysToRender.forEach((k) => {
@@ -195,6 +199,23 @@ const updatePageByLogin = () => {
 
   if (isLoggedIn()) {
     widget.innerHTML = "<a href=\"./account.html\" class=\"nav-link\"><p>My Account</p></a><a href=\"./account.html\"><img id=\"profile-picture\" src=\"resources/profile.png\" alt=\"Profile picture placeholder\"></a>";
+  }
+
+  // Update mobile menu
+  const mobileLoginLink = document.querySelector(".mobile-login-link");
+  const mobileRegisterLink = document.querySelector(".mobile-register-link");
+  const mobileAccountLink = document.querySelector(".mobile-account-link");
+
+  if (mobileLoginLink && mobileRegisterLink && mobileAccountLink) {
+    if (isLoggedIn()) {
+      mobileLoginLink.style.display = "none";
+      mobileRegisterLink.style.display = "none";
+      mobileAccountLink.style.display = "flex";
+    } else {
+      mobileLoginLink.style.display = "flex";
+      mobileRegisterLink.style.display = "flex";
+      mobileAccountLink.style.display = "none";
+    }
   }
 };
 
@@ -308,11 +329,11 @@ const updateAdminPageByStorageMode = () => {
 
 const updatePageByExperimentMode = () => {
   document.querySelectorAll('.experiment-hidden-toggle').forEach((item) => {
-    if (isExperiment()) {
-      item.style.display = "none";
+    if (!isExperiment()) {
+      item.style.display = "flex";
     }
     else {
-      item.style.display = "flex";
+      item.style.display = "none";
     }
   });
 }
@@ -349,6 +370,21 @@ const setupRegisterPage = () => {
   const renderConfirm = () => {
     confirmDisplay.textContent = formatInputDisplay(confirmInput);
   };
+
+  const generateBtn = document.getElementById("generate-btn");
+
+  const updateRegButtonState = () => {
+    //id can't be spaces
+    const isValid = participantInput.value.trim().length > 0; 
+    generateBtn.disabled = !isValid;
+  };
+
+  if (participantInput && generateBtn) {
+    participantInput.addEventListener("input", updateRegButtonState);
+    
+    //load once incase of autofill or if user went back a page
+    updateRegButtonState(); 
+  }
 
   //generates password DOES NOT SAVE
   form.addEventListener("submit", (event) => {
@@ -552,3 +588,22 @@ updatePageByExperimentMode();
 updateAdminPageByExperimentCondition();
 updateAdminPageByExperimentStatus();
 updateAdminPageByStorageMode();
+
+// Hamburger menu toggle
+const hamburgerMenu = document.getElementById("hamburger-menu");
+const mobileMenu = document.getElementById("mobile-menu");
+
+if (hamburgerMenu && mobileMenu) {
+  hamburgerMenu.addEventListener("click", () => {
+    hamburgerMenu.classList.toggle("active");
+    mobileMenu.classList.toggle("active");
+  });
+
+  // Close menu when a link is clicked
+  mobileMenu.querySelectorAll(".mobile-nav-link").forEach((link) => {
+    link.addEventListener("click", () => {
+      hamburgerMenu.classList.remove("active");
+      mobileMenu.classList.remove("active");
+    });
+  });
+}

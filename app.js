@@ -11,6 +11,7 @@ const EMOJI_MODE_DEFAULT = true;
 const EXPERIMENT_MODE_DEFAULT = true;
 const CENSOR_CHAR = "●";
 const EMPTY_CHAR = "-";
+const FIXED_KEYPAD_KEY = "hcs_fixed_keypad"; // to store 10 selected Emojis for experiment
 
 /*Fisher-Yates alg to shuffle array
 Importance of alg: every permutation is equally likely*/
@@ -81,6 +82,10 @@ const isExperiment = () => {
 
 const toggleExperimentStatus = (isOn) => {
     localStorage.setItem(EXPERIMENT_STATUS_KEY, JSON.stringify(isOn));
+    // if off, clear the fixed keyboard then can randomly reset
+    if (!isOn){
+      localStorage.removeItem(FIXED_KEYPAD_KEY);
+    }
     updatePageByExperimentMode();
     updateAdminPageByExperimentStatus();
 }
@@ -107,6 +112,21 @@ const isEmojiMode = () => {
   }  
 }
 
+// Obtain the currently available set of Emojis
+const getEmojiPool = () => {
+  if (!isExperiment()) return EMOJI_LIST; // use all emoji if under experiment off
+
+  const stored = localStorage.getItem(FIXED_KEYPAD_KEY);
+  if (stored) {
+    return JSON.parse(stored); // if already fixed then return 
+  }
+
+  // if not fixed, randomly choose 10 and fix it
+  const newPool = shuffleArray([...EMOJI_LIST]).slice(0, 10);
+  localStorage.setItem(FIXED_KEYPAD_KEY, JSON.stringify(newPool));
+  return newPool;
+};
+
 const getExperimentCondition = () => {
   if (isEmojiMode()) {
     return "emoji";
@@ -129,8 +149,9 @@ const randomDigitPin = () => {
 const randomEmojiPin = () => {
   const counts = new Map();
   const result = [];
+  const pool = getEmojiPool(); // get 10 fixed emojis
   while (result.length < PIN_LENGTH) {
-    const pick = EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)];
+    const pick = pool[Math.floor(Math.random() * pool.length)];
     const used = counts.get(pick) || 0;
     if (used >= MAX_EMOJI_REPEAT) continue;
     counts.set(pick, used + 1);
@@ -180,13 +201,17 @@ const fillKeypad = (type, keypad, handleKey, requiredChars = "") => {
 
     // experiment ON: no randomisation, fixed extras and fixed order
     if (isExperiment()){ // fix order, not shuffle
-      const selectedExtras= availableExtras.slice(0, slotsNeeded);
-      keysToRender= [...requiredArray, ...selectedExtras];
+      // directly obtain the fixed emoji pool under experiment on
+      keysToRender = getEmojiPool();
     }
-    else{ //keep random 
+    else{ //keep random under experiment off
+      const requiredSet = new Set([...requiredChars]);
+      const requiredArray = Array.from(requiredSet);
+      const availableExtras = EMOJI_LIST.filter(e => !requiredSet.has(e));
       const shuffledExtras = shuffleArray([...availableExtras]);
+      const slotsNeeded = 10 - requiredArray.length;
       const selectedExtras = shuffledExtras.slice(0, slotsNeeded);
-      keysToRender= shuffleArray([...requiredArray, ...selectedExtras])
+      keysToRender = shuffleArray([...requiredArray, ...selectedExtras]);
     }
   }
 
@@ -364,13 +389,12 @@ const setupRegisterPage = () => {
   if (!form) return;
 
   //Admin logic
-  const adminCondition = localStorage.getItem('hcs_experiment_condition');
-  const fieldset = form.querySelector('fieldset'); // find <fieldset> tag in the register form
-  const activeCondition = adminCondition || 'emoji'; //defalut to "digits"
+  const activeCondition = getExperimentCondition(); // get "emoji" or "digits"
+  const fieldset = form.querySelector('fieldset');
   
   if (fieldset) {
     fieldset.style.display = 'none'; // hide the password type selection
-    const targetRadio = form.querySelector(`input[name="password-type"][value=${activeCondition}]`);
+    const targetRadio = form.querySelector(`input[name="password-type"][value="${activeCondition}"]`);
     if (targetRadio) targetRadio.checked = true; // auto check this button
   }
 
@@ -486,7 +510,7 @@ const setupRegisterPage = () => {
 
   // listen stroage change
   window.addEventListener('storage', (event) => {
-  if (event.key === 'hcs_admin_condition') {
+  if (event.key === EXPERIMENT_CONDITION_KEY) {
     // once change in admin, refresh 
     window.location.reload();
   }

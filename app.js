@@ -160,14 +160,18 @@ const fillKeypad = (type, keypad, handleKey, requiredChars = "") => {
 
     const availableExtras = EMOJI_LIST.filter(e => !requiredSet.has(e));
 
-    /*shuffle extra emojis to curb predictability */
-    const shuffledExtras = shuffleArray([...availableExtras]);
-
     const slotsNeeded = 10 - requiredArray.length;
-    const selectedExtras = shuffledExtras.slice(0, slotsNeeded);
 
-    /*mix passcode + extras */
-    keysToRender = shuffleArray([...requiredArray, ...selectedExtras]);
+    // experiment ON: no randomisation, fixed extras and fixed order
+    if (isExperiment()){ // fix order, not shuffle
+      const selectedExtras= availableExtras.slice(0, slotsNeeded);
+      keysToRender= [...requiredArray, ...selectedExtras];
+    }
+    else{ //keep random 
+      const shuffledExtras = shuffleArray([...availableExtras]);
+      const selectedExtras = shuffledExtras.slice(0, slotsNeeded);
+      keysToRender= shuffleArray([...requiredArray, ...selectedExtras])
+    }
   }
 
   keysToRender.forEach((k) => {

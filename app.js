@@ -1,7 +1,18 @@
 ﻿// Handles registration/login flow, PIN generation, input UI, and localStorage state.
 const PIN_LENGTH = 4;
 const MAX_EMOJI_REPEAT = 2;
-const EMOJI_LIST = ["😀", "😁", "😂", "🤣", "😅", "😊", "😎", "😍", "😘", "🤔", "😴", "😡", "🤯", "🥳", "😈", "🤖"];
+const EMOJI_KEYPAD_SIZE = 10;
+const EMOJI_LISTS = {
+  smileys: ["😁", "🤣", "😅", "😊", "😎", "😍", "😘", "🤔", "😴", "😡", "🤯", "🥳", ],
+  objects: ["📚", "🔒", "💡", "📱", "🎒", "🧭"],
+  places: ["🏠",  "🏥", "🗽", "🗼", "🗻", "🌋",],
+  nature: ["🌞", "🌧", "🌈", "🔥", "🌙", "⭐", "🌸"]
+};
+// Keyboard ratio across categories (must sum to 10).
+// If you want fully random from all emojis, set USE_CATEGORY_RATIO to false.
+const KEYPAD_CATEGORY_RATIO = { smileys: 3, objects: 3, places: 2, nature: 2 };
+const USE_CATEGORY_RATIO = true;
+const EMOJI_LIST = Object.values(EMOJI_LISTS).flat();
 
 const STORAGE_KEY = "hcs_emoji_auth";
 const LOGIN_STATE_KEY = "hcs_logged_in";
@@ -21,6 +32,34 @@ const shuffleArray = (array) => {
     [array[i], array[j]] = [array[j], array[i]];
   }
   return array;
+};
+
+const pickRandomUnique = (source, count, excludeSet = new Set()) => {
+  const candidates = source.filter((item) => !excludeSet.has(item));
+  const picked = shuffleArray([...candidates]).slice(0, count);
+  picked.forEach((item) => excludeSet.add(item));
+  return picked;
+};
+
+// Build a 10-key emoji keyboard from category ratios.
+const generateEmojiKeyboard = () => {
+  if (!USE_CATEGORY_RATIO) {
+    return shuffleArray([...EMOJI_LIST]).slice(0, EMOJI_KEYPAD_SIZE);
+  }
+
+  const pickedSet = new Set();
+  const keys = [];
+
+  Object.entries(KEYPAD_CATEGORY_RATIO).forEach(([category, count]) => {
+    const list = EMOJI_LISTS[category] || [];
+    keys.push(...pickRandomUnique(list, count, pickedSet));
+  });
+
+  if (keys.length < EMOJI_KEYPAD_SIZE) {
+    keys.push(...pickRandomUnique(EMOJI_LIST, EMOJI_KEYPAD_SIZE - keys.length, pickedSet));
+  }
+
+  return shuffleArray(keys).slice(0, EMOJI_KEYPAD_SIZE);
 };
 
 // Save registration payload using storage module (Firebase + LocalStorage fallback).
@@ -146,10 +185,9 @@ const randomDigitPin = () => {
 };
 
 // Generate a random emoji PIN (each emoji can appear at most MAX_EMOJI_REPEAT times).
-const randomEmojiPin = () => {
+const randomEmojiPin = (pool = getEmojiPool()) => {
   const counts = new Map();
   const result = [];
-  const pool = getEmojiPool(); // get 10 fixed emojis
   while (result.length < PIN_LENGTH) {
     const pick = pool[Math.floor(Math.random() * pool.length)];
     const used = counts.get(pick) || 0;
@@ -182,7 +220,7 @@ const createKeyButton = (label, onClick) => {
 };
 
 // fill keypad w/ passcode type, takes the keypad element and func for key handling
-const fillKeypad = (type, keypad, handleKey, requiredChars = "") => {
+const fillKeypad = (type, keypad, handleKey, requiredChars = "", fixedEmojiKeys = null) => {
   keypad.innerHTML = "";
   keypad.className = `keypad ${type}`;
 
@@ -191,6 +229,14 @@ const fillKeypad = (type, keypad, handleKey, requiredChars = "") => {
   if (type === "digits") {
     keysToRender = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
   } else {
+    if (Array.isArray(fixedEmojiKeys) && fixedEmojiKeys.length > 0) {
+      keysToRender = [...fixedEmojiKeys];
+      keysToRender.forEach((k) => {
+        keypad.appendChild(createKeyButton(k, handleKey));
+      });
+      return;
+    }
+
     /*Identify the passcode emojis */
     const requiredSet = new Set([...requiredChars]);
     const requiredArray = Array.from(requiredSet);
@@ -438,11 +484,13 @@ const setupRegisterPage = () => {
     const passwordType = formData.get("password-type");
     const participantId = (participantInput?.value || "").trim();
 
-    const generatedPassword = passwordType === "emoji" ? randomEmojiPin() : randomDigitPin();
+    const generatedKeypad = passwordType === "emoji" ? generateEmojiKeyboard() : null;
+    const generatedPassword = passwordType === "emoji" ? randomEmojiPin(generatedKeypad) : randomDigitPin();
     pendingRegistration = {
       participant_id: participantId,
       password_type: passwordType,
       generated_password: generatedPassword,
+      generated_keypad: generatedKeypad,
       created_at: new Date().toISOString(),
     };
 
@@ -461,7 +509,7 @@ const setupRegisterPage = () => {
       }
     };
     
-    fillKeypad(passwordType, confirmKeypad, handleKey, generatedPassword);
+    fillKeypad(passwordType, confirmKeypad, handleKey, generatedPassword, generatedKeypad);
   });
 
   confirmClearBtn.addEventListener("click", () => {
@@ -575,7 +623,8 @@ const setupLoginPage = async () => {
   keypad.classList.add(passwordType === "emoji" ? "emoji" : "digits");
 
   const storedPassword = registration.generated_password || "";
-  fillKeypad(passwordType, keypad, handleKey, storedPassword)
+  const storedKeypad = Array.isArray(registration.generated_keypad) ? registration.generated_keypad : null;
+  fillKeypad(passwordType, keypad, handleKey, storedPassword, storedKeypad)
 
   clearBtn.addEventListener("click", clearAll);
 

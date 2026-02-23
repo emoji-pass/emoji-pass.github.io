@@ -78,8 +78,30 @@
                 <button id="digits-mode" class="primary" onclick="saveExperimentCondition('digits')">Digits</button>
             </div>
         </section>
+
+        <section class="card">
+            <h3>Storage Mode</h3>
+            <p class="hint">Select where user data is stored. Hybrid mode tries Firebase first, falls back to LocalStorage.</p>
+
+            <div class="actions">
+                <button id="storage-local" class="ghost" onclick="setStorageMode('local')">Local Only</button>
+                <button id="storage-hybrid" class="primary" onclick="setStorageMode('hybrid')">Hybrid (Recommended)</button>
+                <button id="storage-firebase" class="ghost" onclick="setStorageMode('firebase')">Firebase Only</button>
+            </div>
+
+            <p id="storage-status" class="hint" style="margin-top: 1rem;">Current mode: <strong id="current-storage-mode">hybrid</strong></p>
+        </section>
     </main>
 
+    <!-- Firebase SDK (Realtime Database) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Storage Module with Firebase fallback -->
+    <script src="storage.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Main App -->
     <script src="app.js"></script>
 </body>
 

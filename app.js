@@ -20,19 +20,32 @@ const shuffleArray = (array) => {
   return array;
 };
 
-// Save registration payload into localStorage.
-const saveRegistration = (payload) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+// Save registration payload using storage module (Firebase + LocalStorage fallback).
+const saveRegistration = async (payload) => {
+  if (window.StorageModule) {
+    const result = await window.StorageModule.saveUser(payload);
+    return result;
+  } else {
+    // Fallback to direct localStorage if module not loaded
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    return { success: true, storage: "local" };
+  }
 };
 
-// Read and parse registration payload from localStorage.
-const readRegistration = () => {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
+// Read and parse registration payload using storage module (Firebase + LocalStorage fallback).
+const readRegistration = async (participantId = null) => {
+  if (window.StorageModule) {
+    const result = await window.StorageModule.getUser(participantId);
+    return result.success ? result.data : null;
+  } else {
+    // Fallback to direct localStorage if module not loaded
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
   }
 };
 
@@ -274,6 +287,46 @@ const updateAdminPageByExperimentCondition = () => {
   }
 };
 
+// Storage mode management - wrapper function for admin controls
+window.setStorageMode = (mode) => {
+  if (window.StorageModule) {
+    const success = window.StorageModule.setStorageMode(mode);
+    if (success) {
+      console.log(`Storage mode set to: ${mode}`);
+      updateAdminPageByStorageMode();
+    }
+  }
+};
+
+const updateAdminPageByStorageMode = () => {
+  const currentMode = window.StorageModule ? window.StorageModule.getStorageMode() : 'hybrid';
+  
+  // Update the display text
+  const currentModeLabel = document.getElementById("current-storage-mode");
+  if (currentModeLabel) {
+    currentModeLabel.textContent = currentMode;
+  }
+
+  // Update button styles
+  const modes = ['local', 'hybrid', 'firebase'];
+  modes.forEach(mode => {
+    const btn = document.getElementById(`storage-${mode}`);
+    if (!btn) return;
+    
+    if (mode === currentMode) {
+      if (btn.classList.contains("ghost")) {
+        btn.classList.remove("ghost");
+        btn.classList.add("primary");
+      }
+    } else {
+      if (btn.classList.contains("primary")) {
+        btn.classList.remove("primary");
+        btn.classList.add("ghost");
+      }
+    }
+  });
+};
+
 const updatePageByExperimentMode = () => {
   document.querySelectorAll('.experiment-hidden-toggle').forEach((item) => {
     if (!isExperiment()) {
@@ -372,7 +425,7 @@ const setupRegisterPage = () => {
   });
 
   //saves passcode after confirmation
-  confirmForm.addEventListener("submit", (event) => {
+  confirmForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     
     if (!pendingRegistration) return;
@@ -380,14 +433,24 @@ const setupRegisterPage = () => {
     const attempt = confirmInput.join("");
     
     if (attempt === pendingRegistration.generated_password) {
-      // MATCH: Save to storage
-      saveRegistration(pendingRegistration);
+      // MATCH: Save to storage (Firebase + LocalStorage)
+      const saveResult = await saveRegistration(pendingRegistration);
       
-      confirmMessage.textContent = "Success! Account registered.";
-      confirmMessage.className = "message success";
-      goLoginBtn.disabled = false;
-      
-      confirmKeypad.innerHTML = ""; //shut down keypad, no typing after success
+      if (saveResult.success) {
+        confirmMessage.textContent = "Success! Account registered.";
+        confirmMessage.className = "message success";
+        goLoginBtn.disabled = false;
+        
+        confirmKeypad.innerHTML = ""; //shut down keypad, no typing after success
+        
+        // Optional: Show storage location for debugging
+        if (saveResult.storage) {
+          console.log(`User saved to: ${saveResult.storage}`);
+        }
+      } else {
+        confirmMessage.textContent = "Error saving account. Please try again.";
+        confirmMessage.className = "message error";
+      }
     } else {
       confirmMessage.textContent = "Incorrect. Please try entering the password again.";
       confirmMessage.className = "message error";
@@ -410,7 +473,7 @@ const setupRegisterPage = () => {
 };
 
 // Initialize the login page if present.
-const setupLoginPage = () => {
+const setupLoginPage = async () => {
   const panel = document.getElementById("login-panel");
   if (!panel) return;
 
@@ -422,7 +485,7 @@ const setupLoginPage = () => {
   const loginBtn = document.getElementById("login");
   const hint = document.getElementById("login-hint");
 
-  const registration = readRegistration();
+  const registration = await readRegistration();
   if (!registration) {
     hint.textContent = "No registration found. Please register first.";
     panel.classList.add("hidden");
@@ -487,19 +550,31 @@ const setupLoginPage = () => {
     }
   });
 
-  loginBtn.addEventListener("click", () => {
+  loginBtn.addEventListener("click", async () => {
     if (currentInput.length !== PIN_LENGTH) {
       showMessage(`Please enter ${PIN_LENGTH} characters`, "error");
       return;
     }
     const inputValue = currentInput.join("");
-    if (inputValue === registration.generated_password) {
+    const isCorrect = inputValue === registration.generated_password;
+    
+    if (isCorrect) {
       saveLoginState(true);
       updatePageByLogin();
       showMessage("Login successful ✅", "success");
+      
+      // Record successful login attempt (for analytics)
+      if (window.StorageModule && registration.participant_id) {
+        await window.StorageModule.recordLoginAttempt(registration.participant_id, true);
+      }
     } else {
       showMessage("Incorrect password, try again.", "error");
       clearAll();
+      
+      // Record failed login attempt (for analytics)
+      if (window.StorageModule && registration.participant_id) {
+        await window.StorageModule.recordLoginAttempt(registration.participant_id, false);
+      }
     }
   });
 
@@ -512,6 +587,7 @@ updatePageByLogin();
 updatePageByExperimentMode();
 updateAdminPageByExperimentCondition();
 updateAdminPageByExperimentStatus();
+updateAdminPageByStorageMode();
 
 // Hamburger menu toggle
 const hamburgerMenu = document.getElementById("hamburger-menu");

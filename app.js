@@ -160,8 +160,8 @@ const getEmojiPool = () => {
     return JSON.parse(stored); // if already fixed then return 
   }
 
-  // if not fixed, randomly choose 10 and fix it
-  const newPool = shuffleArray([...EMOJI_LIST]).slice(0, 10);
+  // Experiment ON: create one fixed 10-key keyboard (uses current category ratio settings).
+  const newPool = generateEmojiKeyboard();
   localStorage.setItem(FIXED_KEYPAD_KEY, JSON.stringify(newPool));
   return newPool;
 };
@@ -484,7 +484,9 @@ const setupRegisterPage = () => {
     const passwordType = formData.get("password-type");
     const participantId = (participantInput?.value || "").trim();
 
-    const generatedKeypad = passwordType === "emoji" ? generateEmojiKeyboard() : null;
+    const generatedKeypad = passwordType === "emoji"
+      ? (isExperiment() ? getEmojiPool() : generateEmojiKeyboard())
+      : null;
     const generatedPassword = passwordType === "emoji" ? randomEmojiPin(generatedKeypad) : randomDigitPin();
     pendingRegistration = {
       participant_id: participantId,

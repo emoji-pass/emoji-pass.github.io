@@ -445,6 +445,7 @@ const setupRegisterPage = () => {
   }
 
   const participantInput = document.getElementById("participant-id");
+  const usernameInput = document.getElementById("username");
   const confirmSec = document.getElementById("confirm-passcode");
 
   const confirmDisplay = document.getElementById("confirm-display");
@@ -465,13 +466,14 @@ const setupRegisterPage = () => {
   const generateBtn = document.getElementById("generate-btn");
 
   const updateRegButtonState = () => {
-    //id can't be spaces
-    const isValid = participantInput.value.trim().length > 0; 
+    // participant id and username cannot be empty/whitespace
+    const isValid = participantInput.value.trim().length > 0 && usernameInput.value.trim().length > 0;
     generateBtn.disabled = !isValid;
   };
 
-  if (participantInput && generateBtn) {
+  if (participantInput && usernameInput && generateBtn) {
     participantInput.addEventListener("input", updateRegButtonState);
+    usernameInput.addEventListener("input", updateRegButtonState);
     
     //load once incase of autofill or if user went back a page
     updateRegButtonState(); 
@@ -483,6 +485,7 @@ const setupRegisterPage = () => {
     const formData = new FormData(form);
     const passwordType = formData.get("password-type");
     const participantId = (participantInput?.value || "").trim();
+    const username = (usernameInput?.value || "").trim();
 
     const generatedKeypad = passwordType === "emoji"
       ? (isExperiment() ? getEmojiPool() : generateEmojiKeyboard())
@@ -490,6 +493,7 @@ const setupRegisterPage = () => {
     const generatedPassword = passwordType === "emoji" ? randomEmojiPin(generatedKeypad) : randomDigitPin();
     pendingRegistration = {
       participant_id: participantId,
+      username: username,
       password_type: passwordType,
       generated_password: generatedPassword,
       generated_keypad: generatedKeypad,

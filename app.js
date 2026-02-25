@@ -466,14 +466,18 @@ const setupRegisterPage = () => {
   const generateBtn = document.getElementById("generate-btn");
 
   const updateRegButtonState = () => {
-    // participant id and username cannot be empty/whitespace
-    const isValid = participantInput.value.trim().length > 0 && usernameInput.value.trim().length > 0;
+    // Keep compatibility if username field is hidden/removed in UI.
+    const participantValue = (participantInput?.value || "").trim();
+    const usernameValue = (usernameInput?.value || participantValue).trim();
+    const isValid = participantValue.length > 0 && usernameValue.length > 0;
     generateBtn.disabled = !isValid;
   };
 
-  if (participantInput && usernameInput && generateBtn) {
+  if (participantInput && generateBtn) {
     participantInput.addEventListener("input", updateRegButtonState);
-    usernameInput.addEventListener("input", updateRegButtonState);
+    if (usernameInput) {
+      usernameInput.addEventListener("input", updateRegButtonState);
+    }
     
     //load once incase of autofill or if user went back a page
     updateRegButtonState(); 
@@ -485,7 +489,7 @@ const setupRegisterPage = () => {
     const formData = new FormData(form);
     const passwordType = formData.get("password-type");
     const participantId = (participantInput?.value || "").trim();
-    const username = (usernameInput?.value || "").trim();
+    const username = (usernameInput?.value || participantId).trim();
 
     const generatedKeypad = passwordType === "emoji"
       ? (isExperiment() ? getEmojiPool() : generateEmojiKeyboard())
@@ -583,6 +587,7 @@ const setupLoginPage = async () => {
   const clearBtn = document.getElementById("clear");
   const loginBtn = document.getElementById("login");
   const hint = document.getElementById("login-hint");
+  const usernameInput = document.getElementById("login-username");
 
   const registration = await readRegistration();
   if (!registration) {
@@ -651,6 +656,25 @@ const setupLoginPage = async () => {
   });
 
   loginBtn.addEventListener("click", async () => {
+    const enteredUsername = (usernameInput?.value || "").trim();
+    const storedUsername = (registration.username || "").trim();
+
+    if (!storedUsername) {
+      showMessage("No username found for this account. Please register again.", "error");
+      return;
+    }
+
+    if (!enteredUsername) {
+      showMessage("Please enter your username.", "error");
+      return;
+    }
+
+    if (enteredUsername !== storedUsername) {
+      showMessage("Incorrect username or password.", "error");
+      clearAll();
+      return;
+    }
+
     if (currentInput.length !== PIN_LENGTH) {
       showMessage(`Please enter ${PIN_LENGTH} characters`, "error");
       return;

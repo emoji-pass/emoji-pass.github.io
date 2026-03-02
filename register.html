@@ -38,8 +38,8 @@
     <img class="banner-image" src="./resources/register-banner.svg">
     <form id="register-form" class="card" autocomplete="off">
       <label>
-        Participant ID (optional)
-        <input id="participant-id" type="text" placeholder="e.g., P001" />
+        Participant ID
+        <input id="participant-id" type="text" placeholder="e.g., P001" required />
       </label>
 
       <fieldset>
@@ -80,6 +80,7 @@
 
   <!-- Firebase SDK (Realtime Database) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   
   <!-- Storage Module with Firebase fallback -->

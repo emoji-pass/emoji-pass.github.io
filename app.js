@@ -113,6 +113,10 @@ const getExperimentCondition = () => {
   }
 }
 
+const isValidParticipantId = (participantId) => {
+  return /^[A-Za-z0-9 _-]{3,64}$/.test(participantId);
+};
+
 // Generate a random numeric PIN (digits can repeat).
 const randomDigitPin = () => {
   const digits = [];
@@ -357,6 +361,16 @@ const setupRegisterPage = () => {
     const passwordType = formData.get("password-type");
     const participantId = (participantInput?.value || "").trim();
 
+    if (!participantId) {
+      alert("Participant ID is required for experiment tracking.");
+      return;
+    }
+
+    if (!isValidParticipantId(participantId)) {
+      alert("Participant ID must be 3-64 chars and only use letters, numbers, spaces, '_' or '-'.");
+      return;
+    }
+
     const generatedPassword = passwordType === "emoji" ? randomEmojiPin() : randomDigitPin();
     pendingRegistration = {
       participant_id: participantId,
@@ -401,8 +415,20 @@ const setupRegisterPage = () => {
       const saveResult = await saveRegistration(pendingRegistration);
       
       if (saveResult.success) {
-        confirmMessage.textContent = "Success! Account registered.";
-        confirmMessage.className = "message success";
+        const currentStorageMode = window.StorageModule ? window.StorageModule.getStorageMode() : "local";
+        if (saveResult.storage === "firebase" || saveResult.storage === "both") {
+          confirmMessage.textContent = "Success! Account registered to Firebase.";
+          confirmMessage.className = "message success";
+        } else if (currentStorageMode === "local") {
+          confirmMessage.textContent = "Saved in Local mode only (Firebase disabled in admin settings).";
+          confirmMessage.className = "message error";
+        } else if (saveResult.storage === "local") {
+          confirmMessage.textContent = "Registered locally only (Firebase save failed). Check internet/auth/rules and try again.";
+          confirmMessage.className = "message error";
+        } else {
+          confirmMessage.textContent = "Success! Account registered.";
+          confirmMessage.className = "message success";
+        }
         goLoginBtn.disabled = false;
         
         confirmKeypad.innerHTML = ""; //shut down keypad, no typing after success
@@ -448,19 +474,14 @@ const setupLoginPage = async () => {
   const clearBtn = document.getElementById("clear");
   const loginBtn = document.getElementById("login");
   const hint = document.getElementById("login-hint");
+  const participantInput = document.getElementById("login-participant-id");
+  const loadParticipantBtn = document.getElementById("load-participant");
 
-  const registration = await readRegistration();
-  if (!registration) {
-    hint.textContent = "No registration found. Please register first.";
-    panel.classList.add("hidden");
-    message.classList.remove("hidden");
-    message.textContent = "Generate a password on the registration page first.";
-    message.classList.add("error");
-    return;
-  }
-
-  const passwordType = getExperimentCondition();
+  let activeRegistration = null;
+  let passwordType = getExperimentCondition();
   let currentInput = [];
+  let attemptStartedAt = Date.now();
+  let inputTapCount = 0;
 
   const renderInput = () => {
     inputDisplay.textContent = formatInputDisplay(currentInput);
@@ -470,6 +491,7 @@ const setupLoginPage = async () => {
   const handleKey = (value) => {
     if (currentInput.length >= PIN_LENGTH) return;
     currentInput = currentInput.concat(value);
+    inputTapCount += 1;
     renderInput();
   };
 
@@ -481,6 +503,8 @@ const setupLoginPage = async () => {
 
   const clearAll = () => {
     currentInput = [];
+    inputTapCount = 0;
+    attemptStartedAt = Date.now();
     renderInput();
   };
 
@@ -490,15 +514,64 @@ const setupLoginPage = async () => {
     message.classList.add(type);
   };
 
-  keypad.innerHTML = "";
-  keypad.classList.add(passwordType === "emoji" ? "emoji" : "digits");
+  const loadRegistrationByParticipant = async () => {
+    const participantId = (participantInput?.value || "").trim();
+    if (!participantId) {
+      showMessage("Enter Participant ID first.", "error");
+      return false;
+    }
 
-  const storedPassword = registration.generated_password || "";
-  fillKeypad(passwordType, keypad, handleKey, storedPassword)
+    if (!isValidParticipantId(participantId)) {
+      showMessage("Participant ID must be 3-64 chars and only use letters, numbers, spaces, '_' or '-'.", "error");
+      return false;
+    }
+
+    const registration = await readRegistration(participantId);
+    if (!registration) {
+      showMessage("Participant not found. Check ID or register first.", "error");
+      return false;
+    }
+
+    activeRegistration = registration;
+    passwordType = registration.password_type === "digits" ? "digits" : "emoji";
+    fillKeypad(passwordType, keypad, handleKey, registration.generated_password || "");
+    hint.textContent = `Loaded Participant ID: ${participantId}`;
+    clearAll();
+    showMessage("Participant loaded. Enter password to login.", "success");
+    return true;
+  };
+
+  keypad.innerHTML = "";
+  keypad.className = `keypad ${passwordType}`;
 
   clearBtn.addEventListener("click", clearAll);
+  if (loadParticipantBtn) {
+    loadParticipantBtn.addEventListener("click", async () => {
+      await loadRegistrationByParticipant();
+    });
+  }
+
+  if (participantInput) {
+    participantInput.addEventListener("keydown", async (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        await loadRegistrationByParticipant();
+      }
+    });
+  }
 
   document.addEventListener("keydown", (event) => {
+    const target = event.target;
+    const isTypingField = target && (
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable
+    );
+
+    if (isTypingField) {
+      return;
+    }
+
     if (event.key === "Backspace") {
       event.preventDefault();
       backspace();
@@ -510,17 +583,31 @@ const setupLoginPage = async () => {
       return;
     }
     if (passwordType === "digits" && /^[0-9]$/.test(event.key)) {
-      pushInput(event.key);
+      handleKey(event.key);
     }
   });
 
   loginBtn.addEventListener("click", async () => {
+    const enteredParticipantId = (participantInput?.value || "").trim();
+    if (!activeRegistration || activeRegistration.participant_id !== enteredParticipantId) {
+      const loaded = await loadRegistrationByParticipant();
+      if (!loaded) return;
+    }
+
     if (currentInput.length !== PIN_LENGTH) {
       showMessage(`Please enter ${PIN_LENGTH} characters`, "error");
       return;
     }
+
     const inputValue = currentInput.join("");
-    const isCorrect = inputValue === registration.generated_password;
+    const isCorrect = inputValue === activeRegistration.generated_password;
+    const durationMs = Date.now() - attemptStartedAt;
+    const analyticsPayload = {
+      success: isCorrect,
+      condition: passwordType,
+      num_inputs: inputTapCount,
+      duration_ms: durationMs,
+    };
     
     if (isCorrect) {
       saveLoginState(true);
@@ -528,19 +615,26 @@ const setupLoginPage = async () => {
       showMessage("Login successful ✅", "success");
       
       // Record successful login attempt (for analytics)
-      if (window.StorageModule && registration.participant_id) {
-        await window.StorageModule.recordLoginAttempt(registration.participant_id, true);
+      if (window.StorageModule && activeRegistration.participant_id) {
+        await window.StorageModule.recordLoginAttempt(activeRegistration.participant_id, analyticsPayload);
       }
     } else {
       showMessage("Incorrect password, try again.", "error");
-      clearAll();
       
       // Record failed login attempt (for analytics)
-      if (window.StorageModule && registration.participant_id) {
-        await window.StorageModule.recordLoginAttempt(registration.participant_id, false);
+      if (window.StorageModule && activeRegistration.participant_id) {
+        await window.StorageModule.recordLoginAttempt(activeRegistration.participant_id, analyticsPayload);
       }
+
+      clearAll();
     }
   });
+
+  const cachedRegistration = await readRegistration();
+  if (cachedRegistration && cachedRegistration.participant_id && participantInput) {
+    participantInput.value = cachedRegistration.participant_id;
+    await loadRegistrationByParticipant();
+  }
 
   renderInput();
 };

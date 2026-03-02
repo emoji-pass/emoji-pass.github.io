@@ -1,0 +1,26 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$participantId": {
+        ".read": "auth != null",
+        ".write": "auth != null && $participantId.matches(/^[A-Za-z0-9 _-]{3,64}$/)",
+        "meta": {
+          ".validate": "newData.hasChildren(['participant_id','password_type','generated_password','created_at']) && newData.child('participant_id').isString() && newData.child('participant_id').val() === $participantId && newData.child('password_type').isString() && (newData.child('password_type').val() === 'emoji' || newData.child('password_type').val() === 'digits') && newData.child('generated_password').isString() && newData.child('created_at').isString()"
+        },
+        "events": {
+          "$eventId": {
+            ".validate": "newData.hasChildren(['condition','attempt_number','success','duration_ms','timestamp']) && newData.child('condition').isString() && (newData.child('condition').val() === 'emoji' || newData.child('condition').val() === 'digits') && newData.child('attempt_number').isNumber() && newData.child('success').isBoolean() && newData.child('duration_ms').isNumber() && newData.child('timestamp').isString()"
+          }
+        },
+        "metrics": {
+          ".validate": "newData.hasChildren(['login_attempts_total','login_success_count','login_failure_count','success_rate','first_attempt_success']) && newData.child('login_attempts_total').isNumber() && newData.child('login_success_count').isNumber() && newData.child('login_failure_count').isNumber() && newData.child('success_rate').isNumber() && (newData.child('first_attempt_success').isBoolean() || newData.child('first_attempt_success').val() === null) && (!newData.child('last_attempt_at').exists() || newData.child('last_attempt_at').isString())"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

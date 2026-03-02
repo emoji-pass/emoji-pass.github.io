@@ -13,12 +13,50 @@ const firebaseConfig = {
   measurementId: "G-MJ0196CQ9G"
 };
 
-// Initialize Firebase when the module is loaded (if Firebase SDK is available)
-if (typeof firebase !== "undefined" && window.StorageModule) {
-  window.StorageModule.initializeFirebase(firebaseConfig);
-} else {
-  console.warn("Firebase SDK or Storage module not loaded. Running in local-only mode.");
-}
+const initializeFirebaseConnection = async () => {
+  if (typeof firebase === "undefined" || !window.StorageModule) {
+    console.warn("Firebase SDK or Storage module not loaded. Running in local-only mode.");
+    return;
+  }
+
+  const initialized = window.StorageModule.initializeFirebase(firebaseConfig);
+  if (!initialized) {
+    return;
+  }
+
+  if (firebase.auth) {
+    try {
+      firebase.auth().onAuthStateChanged((user) => {
+        if (window.StorageModule && typeof window.StorageModule.setFirebaseAuthReady === "function") {
+          window.StorageModule.setFirebaseAuthReady(Boolean(user));
+        }
+      });
+
+      await firebase.auth().signInAnonymously();
+      if (window.StorageModule && typeof window.StorageModule.setFirebaseAuthReady === "function") {
+        window.StorageModule.setFirebaseAuthReady(true);
+      }
+      console.log("Firebase anonymous auth ready");
+    } catch (error) {
+      if (error && error.code === "auth/configuration-not-found") {
+        if (window.StorageModule && typeof window.StorageModule.setFirebaseAuthReady === "function") {
+          window.StorageModule.setFirebaseAuthReady(false);
+        }
+        console.error("Firebase Anonymous Auth is disabled. Enable Authentication > Sign-in method > Anonymous in Firebase Console, then reload.");
+        return;
+      }
+
+      if (window.StorageModule && typeof window.StorageModule.setFirebaseAuthReady === "function") {
+        window.StorageModule.setFirebaseAuthReady(false);
+      }
+      console.error("Firebase anonymous auth failed:", error);
+    }
+  } else {
+    console.warn("Firebase Auth SDK not loaded. Authenticated rules may block database writes.");
+  }
+};
+
+initializeFirebaseConnection();
 
 // Note: To enable Firebase:
 // 1. Create a Firebase project at https://console.firebase.google.com/

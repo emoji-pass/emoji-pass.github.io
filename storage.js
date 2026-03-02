@@ -7,6 +7,7 @@
 
 const STORAGE_CONFIG = {
   LOCAL_KEY: "hcs_emoji_auth",
+  LOCAL_METRICS_KEY: "hcs_login_metrics",
   ADMIN_STORAGE_MODE_KEY: "hcs_admin_storage_mode", // "local" | "firebase" | "hybrid"
   FIREBASE_DB_PATH: "users", // Path in Firebase Realtime Database
 };
@@ -38,6 +39,11 @@ const isFirebaseEnabled = () => {
 
 let firebaseInitialized = false;
 let firebaseDatabase = null;
+let firebaseAuthReady = false;
+let resolveFirebaseAuthReady;
+let firebaseAuthReadyPromise = new Promise((resolve) => {
+  resolveFirebaseAuthReady = resolve;
+});
 
 // Check if Firebase SDK is loaded
 const isFirebaseAvailable = () => {
@@ -64,6 +70,59 @@ const initializeFirebase = (config) => {
     firebaseInitialized = false;
     return false;
   }
+};
+
+const setFirebaseAuthReady = (isReady) => {
+  firebaseAuthReady = Boolean(isReady);
+  if (resolveFirebaseAuthReady) {
+    resolveFirebaseAuthReady(firebaseAuthReady);
+    resolveFirebaseAuthReady = null;
+  }
+};
+
+const waitForFirebaseAuthReady = async (timeoutMs = 4000) => {
+  if (firebaseAuthReady) {
+    return true;
+  }
+
+  if (!isFirebaseAvailable() || typeof firebase.auth === "undefined") {
+    return false;
+  }
+
+  const timeoutPromise = new Promise((resolve) => {
+    setTimeout(() => resolve(false), timeoutMs);
+  });
+
+  const readyResult = await Promise.race([firebaseAuthReadyPromise, timeoutPromise]);
+  return Boolean(readyResult);
+};
+
+const formatDateTime24 = (dateInput = new Date()) => {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) {
+    return formatDateTime24(new Date());
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+const toDateTime24 = (value) => {
+  if (!value) {
+    return formatDateTime24();
+  }
+
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) {
+    return value;
+  }
+
+  return formatDateTime24(value);
 };
 
 // ============================================================================
@@ -109,6 +168,69 @@ const localDeleteUser = (participantId) => {
   }
 };
 
+const localGetMetricsMap = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_CONFIG.LOCAL_METRICS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const localSaveMetricsMap = (metricsMap) => {
+  try {
+    localStorage.setItem(STORAGE_CONFIG.LOCAL_METRICS_KEY, JSON.stringify(metricsMap));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+const localRecordLoginAttempt = (participantId, payload = {}) => {
+  const key = participantId || "unknown_participant";
+  const metricsMap = localGetMetricsMap();
+  const current = metricsMap[key] || {
+    login_attempts_total: 0,
+    login_success_count: 0,
+    login_failure_count: 0,
+    first_attempt_success: null,
+    success_rate: 0,
+  };
+
+  const success = Boolean(payload.success);
+  current.login_attempts_total += 1;
+  if (success) {
+    current.login_success_count += 1;
+  } else {
+    current.login_failure_count += 1;
+  }
+
+  if (current.login_attempts_total === 1 && current.first_attempt_success === null) {
+    current.first_attempt_success = success;
+  }
+
+  current.success_rate = current.login_attempts_total > 0
+    ? Number((current.login_success_count / current.login_attempts_total).toFixed(4))
+    : 0;
+  current.last_attempt_at = formatDateTime24();
+
+  metricsMap[key] = current;
+  const saveResult = localSaveMetricsMap(metricsMap);
+  if (!saveResult.success) {
+    return saveResult;
+  }
+
+  return { success: true, data: current };
+};
+
+const localGetUserMetrics = (participantId) => {
+  const metricsMap = localGetMetricsMap();
+  const key = participantId || "unknown_participant";
+  return { success: true, data: metricsMap[key] || null };
+};
+
 // ============================================================================
 // FIREBASE FUNCTIONS
 // ============================================================================
@@ -124,16 +246,46 @@ const fbSaveUser = async (userObj) => {
       return { success: false, error: "Participant ID required" };
     }
 
-    // Store user data under /users/{participantId}
     const userRef = firebaseDatabase.ref(`${STORAGE_CONFIG.FIREBASE_DB_PATH}/${participantId}`);
-    
-    // Add server timestamp
-    const dataToSave = {
-      ...userObj,
-      updated_at: firebase.database.ServerValue.TIMESTAMP,
+    const metaRef = userRef.child("meta");
+    const eventsRef = userRef.child("events");
+    const metricsRef = userRef.child("metrics");
+
+    const existingMetaSnapshot = await metaRef.once("value");
+    const existingMeta = existingMetaSnapshot.exists() ? existingMetaSnapshot.val() : {};
+
+    const createdAt = toDateTime24(existingMeta.created_at || userObj.created_at);
+
+    const metaPayload = {
+      participant_id: participantId,
+      password_type: userObj.password_type || "emoji",
+      generated_password: userObj.generated_password || "",
+      created_at: createdAt,
     };
 
-    await userRef.set(dataToSave);
+    await metaRef.set(metaPayload);
+
+    await eventsRef.push({
+      condition: metaPayload.password_type,
+      attempt_number: 1,
+      success: true,
+      duration_ms: 0,
+      timestamp: formatDateTime24(),
+    });
+
+    await metricsRef.transaction((current) => {
+      if (current && typeof current === "object") {
+        return current;
+      }
+      return {
+        login_attempts_total: 0,
+        login_success_count: 0,
+        login_failure_count: 0,
+        success_rate: 0,
+        first_attempt_success: null,
+      };
+    });
+
     console.log(`User ${participantId} saved to Firebase`);
     return { success: true };
   } catch (error) {
@@ -160,8 +312,16 @@ const fbGetUser = async (participantId) => {
     }
 
     const userData = snapshot.val();
+    const normalizedData = userData.meta
+      ? {
+          ...userData.meta,
+          events: userData.events || {},
+          metrics: userData.metrics || {},
+        }
+      : userData;
+
     console.log(`User ${participantId} retrieved from Firebase`);
-    return { success: true, data: userData };
+    return { success: true, data: normalizedData };
   } catch (error) {
     console.error("Firebase read failed:", error);
     return { success: false, error: error.message };
@@ -189,7 +349,7 @@ const fbDeleteUser = async (participantId) => {
 };
 
 // Record login attempt (optional analytics)
-const fbRecordLoginAttempt = async (participantId, success, timestamp = null) => {
+const fbRecordLoginAttempt = async (participantId, payload = {}) => {
   if (!firebaseInitialized || !firebaseDatabase) {
     return { success: false, error: "Firebase not initialized" };
   }
@@ -199,14 +359,74 @@ const fbRecordLoginAttempt = async (participantId, success, timestamp = null) =>
       return { success: false, error: "Participant ID required" };
     }
 
-    const attemptRef = firebaseDatabase.ref(
-      `${STORAGE_CONFIG.FIREBASE_DB_PATH}/${participantId}/login_attempts`
-    );
-    
-    await attemptRef.push({
-      success: success,
-      timestamp: timestamp || firebase.database.ServerValue.TIMESTAMP,
+    const userRef = firebaseDatabase.ref(`${STORAGE_CONFIG.FIREBASE_DB_PATH}/${participantId}`);
+    const metaRef = userRef.child("meta");
+    const eventsRef = userRef.child("events");
+    const metricsRef = userRef.child("metrics");
+
+    const success = Boolean(payload.success);
+    const condition = payload.condition || null;
+    const durationMs = Number.isFinite(payload.duration_ms) ? payload.duration_ms : 0;
+
+    const userSnapshot = await userRef.once("value");
+    const userData = userSnapshot.exists() ? userSnapshot.val() : {};
+    const existingMeta = userData && typeof userData.meta === "object" ? userData.meta : null;
+
+    if (!existingMeta) {
+      const migratedMeta = {
+        participant_id: participantId,
+        password_type: userData.password_type === "digits" ? "digits" : "emoji",
+        generated_password: typeof userData.generated_password === "string" ? userData.generated_password : "",
+        created_at: toDateTime24(userData.created_at),
+      };
+
+      await metaRef.set(migratedMeta);
+    }
+
+    const metricsTransaction = await metricsRef.transaction((current) => {
+      const metrics = current && typeof current === "object"
+        ? current
+        : {
+            login_attempts_total: 0,
+            login_success_count: 0,
+            login_failure_count: 0,
+            success_rate: 0,
+            first_attempt_success: null,
+          };
+
+      const attempts = (metrics.login_attempts_total || 0) + 1;
+      const successCount = (metrics.login_success_count || 0) + (success ? 1 : 0);
+      const failureCount = (metrics.login_failure_count || 0) + (success ? 0 : 1);
+
+      return {
+        ...metrics,
+        login_attempts_total: attempts,
+        login_success_count: successCount,
+        login_failure_count: failureCount,
+        success_rate: Number((successCount / attempts).toFixed(4)),
+        first_attempt_success: metrics.first_attempt_success === null && attempts === 1
+          ? success
+          : metrics.first_attempt_success,
+      };
     });
+
+    const attemptNumber = metricsTransaction && metricsTransaction.snapshot && metricsTransaction.snapshot.exists()
+      ? metricsTransaction.snapshot.val().login_attempts_total || 1
+      : 1;
+
+    await eventsRef.push({
+      condition,
+      attempt_number: attemptNumber,
+      success,
+      duration_ms: durationMs,
+      timestamp: formatDateTime24(),
+    });
+
+    const metricsUpdates = {
+      last_attempt_at: formatDateTime24(),
+    };
+
+    await metricsRef.update(metricsUpdates);
 
     return { success: true };
   } catch (error) {
@@ -242,6 +462,10 @@ const saveUser = async (userObj) => {
 
   // Try Firebase if enabled
   if (isFirebaseEnabled()) {
+    if (typeof firebase !== "undefined" && typeof firebase.auth !== "undefined") {
+      await waitForFirebaseAuthReady();
+    }
+
     const fbResult = await fbSaveUser(userObj);
     
     if (fbResult.success) {
@@ -280,6 +504,10 @@ const getUser = async (participantId = null) => {
 
   // Try Firebase first if enabled
   if (isFirebaseEnabled() && participantId) {
+    if (typeof firebase !== "undefined" && typeof firebase.auth !== "undefined") {
+      await waitForFirebaseAuthReady();
+    }
+
     const fbResult = await fbGetUser(participantId);
     
     if (fbResult.success) {
@@ -316,17 +544,46 @@ const deleteUser = async (participantId) => {
  */
 const recordLoginAttempt = async (participantId, success) => {
   const mode = getStorageMode();
+  const payload = typeof success === "object" ? success : { success: Boolean(success) };
   
   if (mode === "local") {
-    // Could add local analytics here if needed
-    return { success: true };
+    return localRecordLoginAttempt(participantId, payload);
   }
 
   if (isFirebaseEnabled() && participantId) {
-    return await fbRecordLoginAttempt(participantId, success);
+    if (typeof firebase !== "undefined" && typeof firebase.auth !== "undefined") {
+      await waitForFirebaseAuthReady();
+    }
+
+    const fbResult = await fbRecordLoginAttempt(participantId, payload);
+    if (fbResult.success) return fbResult;
+
+    // In hybrid mode, fallback to local metrics tracking.
+    if (mode === "hybrid") {
+      return localRecordLoginAttempt(participantId, payload);
+    }
+    return fbResult;
   }
 
-  return { success: true };
+  return localRecordLoginAttempt(participantId, payload);
+};
+
+const getUserMetrics = async (participantId) => {
+  const mode = getStorageMode();
+
+  if (mode !== "local" && isFirebaseEnabled() && participantId && firebaseInitialized && firebaseDatabase) {
+    try {
+      const metricsRef = firebaseDatabase.ref(`${STORAGE_CONFIG.FIREBASE_DB_PATH}/${participantId}/metrics`);
+      const snapshot = await metricsRef.once("value");
+      return { success: true, data: snapshot.exists() ? snapshot.val() : null };
+    } catch (error) {
+      if (mode === "firebase") {
+        return { success: false, error: error.message };
+      }
+    }
+  }
+
+  return localGetUserMetrics(participantId);
 };
 
 // ============================================================================
@@ -340,18 +597,21 @@ window.StorageModule = {
   getUser,
   deleteUser,
   recordLoginAttempt,
+  getUserMetrics,
   
   // Configuration
   getStorageMode,
   setStorageMode,
   isFirebaseEnabled,
   initializeFirebase,
+  setFirebaseAuthReady,
   
   // Direct access to storage layers (for testing/debugging)
   local: {
     save: localSaveUser,
     get: localGetUser,
     delete: localDeleteUser,
+    getMetrics: localGetUserMetrics,
   },
   firebase: {
     save: fbSaveUser,

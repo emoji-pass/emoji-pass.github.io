@@ -37,6 +37,11 @@
     <p id="login-hint" class="hint">Use the password generated at registration.</p>
     <img class="small-image" src="./resources/login-banner.svg">
     <section id="login-panel" class="card">
+      <div class="actions">
+        <input id="login-participant-id" type="text" placeholder="Enter Participant ID (e.g. P001)" />
+        <button id="load-participant" class="secondary" type="button">Enter Participant ID</button>
+      </div>
+
       <div class="input-row">
         <div id="input-display" class="input-display" aria-live="polite">----</div>
         <div id="input-meta" class="hint">Length 0 / 4</div>
@@ -59,6 +64,7 @@
 
   <!-- Firebase SDK (Realtime Database) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   
   <!-- Storage Module with Firebase fallback -->

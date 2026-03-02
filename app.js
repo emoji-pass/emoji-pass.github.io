@@ -3,14 +3,14 @@ const PIN_LENGTH = 4;
 const MAX_EMOJI_REPEAT = 2;
 const EMOJI_KEYPAD_SIZE = 10;
 const EMOJI_LISTS = {
-  smileys: ["😁", "🤣", "😅", "😊", "😎", "😍", "😘", "🤔", "😴", "😡", "🤯", "🥳", ],
-  objects: ["📚", "🔒", "💡", "📱", "🎒", "🧭"],
-  places: ["🏠",  "🏥", "🗽", "🗼", "🗻", "🌋",],
-  nature: ["🌞", "🌧", "🌈", "🔥", "🌙", "⭐", "🌸"]
+  smileys: ["😁", "🤣", "🤔", "😡", "😎", "😍", "😘", "😴", "🤯", "🥳", ],
+  objects: ["🧭", "📱", "💡", "🔒", "🎒", "📚"],
+  places: ["🏠",  "🗻", "🗽", "🗼", "🌋",],
+  nature: ["🌞", "🌈", "🔥", "🌙", "⭐", "🌸"]
 };
 // Keyboard ratio across categories (must sum to 10).
 // If you want fully random from all emojis, set USE_CATEGORY_RATIO to false.
-const KEYPAD_CATEGORY_RATIO = { smileys: 3, objects: 3, places: 2, nature: 2 };
+const KEYPAD_CATEGORY_RATIO = { smileys: 4, objects: 2, places: 2, nature: 2 };
 const USE_CATEGORY_RATIO = true;
 const EMOJI_LIST = Object.values(EMOJI_LISTS).flat();
 
@@ -60,6 +60,29 @@ const generateEmojiKeyboard = () => {
   }
 
   return shuffleArray(keys).slice(0, EMOJI_KEYPAD_SIZE);
+};
+
+// Build the deterministic keyboard used in experiment mode:
+// pick the first N emojis from each category and keep this order.
+const generateFixedExperimentKeyboard = () => {
+  const keys = [];
+
+  if (!USE_CATEGORY_RATIO) {
+    return EMOJI_LIST.slice(0, EMOJI_KEYPAD_SIZE);
+  }
+
+  Object.entries(KEYPAD_CATEGORY_RATIO).forEach(([category, count]) => {
+    const list = EMOJI_LISTS[category] || [];
+    keys.push(...list.slice(0, count));
+  });
+
+  if (keys.length < EMOJI_KEYPAD_SIZE) {
+    const used = new Set(keys);
+    const extras = EMOJI_LIST.filter((emoji) => !used.has(emoji)).slice(0, EMOJI_KEYPAD_SIZE - keys.length);
+    keys.push(...extras);
+  }
+
+  return keys.slice(0, EMOJI_KEYPAD_SIZE);
 };
 
 // Save registration payload using storage module (Firebase + LocalStorage fallback).
@@ -155,15 +178,10 @@ const isEmojiMode = () => {
 const getEmojiPool = () => {
   if (!isExperiment()) return EMOJI_LIST; // use all emoji if under experiment off
 
-  const stored = localStorage.getItem(FIXED_KEYPAD_KEY);
-  if (stored) {
-    return JSON.parse(stored); // if already fixed then return 
-  }
-
-  // Experiment ON: create one fixed 10-key keyboard (uses current category ratio settings).
-  const newPool = generateEmojiKeyboard();
-  localStorage.setItem(FIXED_KEYPAD_KEY, JSON.stringify(newPool));
-  return newPool;
+  // Experiment ON: always same 10 emojis, same order.
+  const fixedPool = generateFixedExperimentKeyboard();
+  localStorage.setItem(FIXED_KEYPAD_KEY, JSON.stringify(fixedPool));
+  return fixedPool;
 };
 
 const getExperimentCondition = () => {

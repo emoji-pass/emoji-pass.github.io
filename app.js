@@ -619,9 +619,11 @@ const setupLoginPage = async () => {
   const keypad = document.getElementById("keypad");
   const inputDisplay = document.getElementById("input-display");
   const meta = document.getElementById("input-meta");
+  const passwordInputRow = document.getElementById("password-input-row");
   const message = document.getElementById("message");
   const clearBtn = document.getElementById("clear");
   const loginBtn = document.getElementById("login");
+  const loginActions = document.getElementById("login-actions");
   const hint = document.getElementById("login-hint");
   const usernameInput = document.getElementById("login-username");
   const loadUsernameBtn = document.getElementById("load-username");
@@ -631,6 +633,7 @@ const setupLoginPage = async () => {
   let attemptStartedAt = Date.now();
   let inputTapCount = 0;
   let activeRegistration = null;
+  let passwordEntryUnlocked = false;
 
   const renderInput = () => {
     inputDisplay.textContent = formatInputDisplay(currentInput);
@@ -638,6 +641,7 @@ const setupLoginPage = async () => {
   };
 
   const handleKey = (value) => {
+    if (!passwordEntryUnlocked) return;
     if (currentInput.length >= PIN_LENGTH) return;
     currentInput = currentInput.concat(value);
     inputTapCount += 1;
@@ -663,6 +667,23 @@ const setupLoginPage = async () => {
     message.classList.add(type);
   };
 
+  const setPasswordEntryVisible = (isVisible) => {
+    const shouldShow = Boolean(isVisible);
+    passwordEntryUnlocked = shouldShow;
+
+    if (passwordInputRow) {
+      passwordInputRow.classList.toggle("hidden", !shouldShow);
+    }
+
+    if (keypad) {
+      keypad.classList.toggle("hidden", !shouldShow);
+    }
+
+    if (loginActions) {
+      loginActions.classList.toggle("hidden", !shouldShow);
+    }
+  };
+
   const queryRegistrationByUsername = async (username) => {
     if (window.StorageModule && window.StorageModule.firebase && typeof window.StorageModule.firebase.get === "function") {
       const result = await window.StorageModule.firebase.get(username, null);
@@ -675,6 +696,7 @@ const setupLoginPage = async () => {
   const loadRegistrationByUsername = async () => {
     const enteredUsername = (usernameInput?.value || "").trim();
     if (!enteredUsername || !isValidUsername(enteredUsername)) {
+      setPasswordEntryVisible(false);
       showMessage("Incorrect username.", "error");
       return false;
     }
@@ -682,6 +704,7 @@ const setupLoginPage = async () => {
     const registration = await queryRegistrationByUsername(enteredUsername);
     if (!registration) {
       activeRegistration = null;
+      setPasswordEntryVisible(false);
       showMessage("Incorrect username.", "error");
       return false;
     }
@@ -710,13 +733,14 @@ const setupLoginPage = async () => {
       passwordType,
     };
 
+    setPasswordEntryVisible(true);
     showMessage("User loaded. Enter password and click Login.", "success");
     return true;
   };
 
   keypad.innerHTML = "";
   keypad.className = `keypad ${passwordType}`;
-  fillKeypad(passwordType, keypad, handleKey, "", null);
+  setPasswordEntryVisible(false);
 
   clearBtn.addEventListener("click", clearAll);
   if (loadUsernameBtn) {
@@ -747,7 +771,7 @@ const setupLoginPage = async () => {
       clearAll();
       return;
     }
-    if (passwordType === "digits" && /^[0-9]$/.test(event.key)) {
+    if (passwordEntryUnlocked && passwordType === "digits" && /^[0-9]$/.test(event.key)) {
       handleKey(event.key);
     }
   });
@@ -814,10 +838,12 @@ const setupLoginPage = async () => {
 
     usernameInput.addEventListener("input", () => {
       activeRegistration = null;
+      setPasswordEntryVisible(false);
+      clearAll();
     });
   }
 
-  hint.textContent = "Enter username, click Load User Details, then enter password and click Login.";
+  hint.textContent = "Enter username, click Next, then enter password and click Login.";
 
   renderInput();
 };

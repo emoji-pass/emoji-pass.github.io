@@ -74,17 +74,17 @@
           data-form-type="other"
           data-lpignore="true"
         />
-        <button id="load-username" class="secondary" type="button">Load User Details</button>
+        <button id="load-username" class="secondary" type="button">Next</button>
       </div>
 
-      <div class="input-row">
+      <div class="input-row hidden" id="password-input-row">
         <div id="input-display" class="input-display" aria-live="polite">----</div>
         <div id="input-meta" class="hint">Length 0 / 4</div>
       </div>
 
-      <div id="keypad" class="keypad"></div>
+      <div id="keypad" class="keypad hidden"></div>
 
-      <div class="actions">
+      <div class="actions hidden" id="login-actions">
         <button id="clear" class="ghost">Clear</button>
         <button id="login" class="primary">Login</button>
       </div>

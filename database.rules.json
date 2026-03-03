@@ -9,6 +9,11 @@
         "meta": {
           ".validate": "newData.hasChildren(['username','password_type','generated_password','created_at']) && newData.child('username').isString() && newData.child('username').val() === $username && newData.child('password_type').isString() && (newData.child('password_type').val() === 'emoji' || newData.child('password_type').val() === 'digits') && newData.child('generated_password').isString() && newData.child('created_at').isString()"
         },
+        "passwords": {
+          "$type": {
+            ".validate": "($type === 'emoji' || $type === 'digits') && newData.hasChildren(['generated_password','created_at']) && newData.child('generated_password').isString() && newData.child('created_at').isString()"
+          }
+        },
         "events": {
           "$eventId": {
             ".validate": "newData.hasChildren(['condition','attempt_number','success','duration_ms','timestamp']) && newData.child('condition').isString() && (newData.child('condition').val() === 'emoji' || newData.child('condition').val() === 'digits') && newData.child('attempt_number').isNumber() && newData.child('success').isBoolean() && newData.child('duration_ms').isNumber() && newData.child('timestamp').isString()"

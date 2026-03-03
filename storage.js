@@ -173,13 +173,75 @@ const toDateTime24 = (value) => {
   return formatDateTime24(value);
 };
 
+const normalizeMetricsPayload = (rawMetrics = {}) => {
+  const metrics = rawMetrics && typeof rawMetrics === "object" ? rawMetrics : {};
+
+  const loginAttemptsTotal = Number.isFinite(metrics.login_attempts_total)
+    ? Number(metrics.login_attempts_total)
+    : 0;
+  const loginSuccessCount = Number.isFinite(metrics.login_success_count)
+    ? Number(metrics.login_success_count)
+    : 0;
+  const loginFailureCount = Number.isFinite(metrics.login_failure_count)
+    ? Number(metrics.login_failure_count)
+    : 0;
+
+  const normalizedSuccessRate = loginAttemptsTotal > 0
+    ? Number((loginSuccessCount / loginAttemptsTotal).toFixed(4))
+    : 0;
+
+  const firstAttemptSuccess = typeof metrics.first_attempt_success === "boolean"
+    ? metrics.first_attempt_success
+    : false;
+
+  const normalized = {
+    login_attempts_total: loginAttemptsTotal,
+    login_success_count: loginSuccessCount,
+    login_failure_count: loginFailureCount,
+    success_rate: Number.isFinite(metrics.success_rate) ? Number(metrics.success_rate) : normalizedSuccessRate,
+    first_attempt_success: firstAttemptSuccess,
+  };
+
+  if (typeof metrics.last_attempt_at === "string") {
+    normalized.last_attempt_at = metrics.last_attempt_at;
+  }
+
+  return normalized;
+};
+
 // ============================================================================
 // LOCAL STORAGE FUNCTIONS
 // ============================================================================
 
 const localSaveUser = (userObj) => {
   try {
-    localStorage.setItem(STORAGE_CONFIG.LOCAL_KEY, JSON.stringify(userObj));
+    const raw = localStorage.getItem(STORAGE_CONFIG.LOCAL_KEY);
+    const existing = raw ? JSON.parse(raw) : null;
+
+    const passwordType = userObj.password_type === "digits" ? "digits" : "emoji";
+    const generatedPassword = typeof userObj.generated_password === "string" ? userObj.generated_password : "";
+    const createdAt = toDateTime24(userObj.created_at);
+
+    const existingPasswords = existing && existing.passwords && typeof existing.passwords === "object"
+      ? existing.passwords
+      : {};
+
+    const nextPayload = {
+      ...(existing && typeof existing === "object" ? existing : {}),
+      ...userObj,
+      password_type: passwordType,
+      generated_password: generatedPassword,
+      created_at: createdAt,
+      passwords: {
+        ...existingPasswords,
+        [passwordType]: {
+          generated_password: generatedPassword,
+          created_at: createdAt,
+        },
+      },
+    };
+
+    localStorage.setItem(STORAGE_CONFIG.LOCAL_KEY, JSON.stringify(nextPayload));
     return { success: true };
   } catch (error) {
     console.error("LocalStorage save failed:", error);
@@ -187,7 +249,7 @@ const localSaveUser = (userObj) => {
   }
 };
 
-const localGetUser = (username) => {
+const localGetUser = (username, preferredPasswordType = null) => {
   try {
     const raw = localStorage.getItem(STORAGE_CONFIG.LOCAL_KEY);
     if (!raw) return { success: false, error: "No user found" };
@@ -203,6 +265,30 @@ const localGetUser = (username) => {
 
     if (storedUsername && !userData.username) {
       userData.username = storedUsername;
+    }
+
+    const passwords = userData.passwords && typeof userData.passwords === "object"
+      ? userData.passwords
+      : null;
+
+    if (passwords) {
+      const preferredType = preferredPasswordType === "digits" ? "digits" : preferredPasswordType === "emoji" ? "emoji" : null;
+      const fallbackType = userData.password_type === "digits" ? "digits" : "emoji";
+      const selectedType = preferredType && passwords[preferredType]
+        ? preferredType
+        : passwords[fallbackType]
+          ? fallbackType
+          : passwords.emoji
+            ? "emoji"
+            : passwords.digits
+              ? "digits"
+              : null;
+
+      if (selectedType && passwords[selectedType]) {
+        userData.password_type = selectedType;
+        userData.generated_password = passwords[selectedType].generated_password || "";
+        userData.created_at = toDateTime24(passwords[selectedType].created_at || userData.created_at);
+      }
     }
     
     return { success: true, data: userData };
@@ -302,6 +388,7 @@ const fbSaveUser = async (userObj) => {
 
     const userRef = firebaseDatabase.ref(`${STORAGE_CONFIG.FIREBASE_DB_PATH}/${username}`);
     const metaRef = userRef.child("meta");
+    const passwordsRef = userRef.child("passwords");
     const eventsRef = userRef.child("events");
     const metricsRef = userRef.child("metrics");
 
@@ -310,14 +397,25 @@ const fbSaveUser = async (userObj) => {
 
     const createdAt = toDateTime24(existingMeta.created_at || userObj.created_at);
 
+    const passwordType = userObj.password_type === "digits" ? "digits" : "emoji";
+
+    const generatedKeypad = Array.isArray(userObj.generated_keypad)
+      ? userObj.generated_keypad
+      : [];
+
     const metaPayload = {
       username,
-      password_type: userObj.password_type || "emoji",
+      password_type: passwordType,
       generated_password: userObj.generated_password || "",
       created_at: createdAt,
+      generated_keypad: generatedKeypad,
     };
 
     await metaRef.set(metaPayload);
+    await passwordsRef.child(passwordType).set({
+      generated_password: metaPayload.generated_password,
+      created_at: metaPayload.created_at,
+    });
 
     await eventsRef.push({
       condition: metaPayload.password_type,
@@ -328,16 +426,8 @@ const fbSaveUser = async (userObj) => {
     });
 
     await metricsRef.transaction((current) => {
-      if (current && typeof current === "object") {
-        return current;
-      }
-      return {
-        login_attempts_total: 0,
-        login_success_count: 0,
-        login_failure_count: 0,
-        success_rate: 0,
-        first_attempt_success: null,
-      };
+      const baseline = normalizeMetricsPayload(current);
+      return baseline;
     });
 
     console.log(`User ${username} saved to Firebase`);
@@ -348,7 +438,7 @@ const fbSaveUser = async (userObj) => {
   }
 };
 
-const fbGetUser = async (username) => {
+const fbGetUser = async (username, preferredPasswordType = null) => {
   if (!firebaseInitialized || !firebaseDatabase) {
     return { success: false, error: "Firebase not initialized" };
   }
@@ -366,11 +456,32 @@ const fbGetUser = async (username) => {
     }
 
     const userData = snapshot.val();
+    const passwords = userData.passwords && typeof userData.passwords === "object" ? userData.passwords : null;
+    const preferredType = preferredPasswordType === "digits" ? "digits" : preferredPasswordType === "emoji" ? "emoji" : null;
+    const metaType = userData.meta && userData.meta.password_type === "digits" ? "digits" : "emoji";
+    const selectedType = passwords
+      ? preferredType && passwords[preferredType]
+        ? preferredType
+        : passwords[metaType]
+          ? metaType
+          : passwords.emoji
+            ? "emoji"
+            : passwords.digits
+              ? "digits"
+              : null
+      : null;
+
     const normalizedData = userData.meta
       ? {
+          meta: userData.meta,
           ...userData.meta,
+          generated_password: selectedType && passwords && passwords[selectedType]
+            ? passwords[selectedType].generated_password || userData.meta.generated_password || ""
+            : userData.meta.generated_password || "",
+          password_type: selectedType || userData.meta.password_type || "emoji",
+          passwords: passwords || {},
           events: userData.events || {},
-          metrics: userData.metrics || {},
+          metrics: normalizeMetricsPayload(userData.metrics || {}),
         }
       : userData;
 
@@ -440,15 +551,7 @@ const fbRecordLoginAttempt = async (username, payload = {}) => {
     const condition = resolvedCondition || (existingMeta && existingMeta.password_type === "digits" ? "digits" : "emoji");
 
     const metricsTransaction = await metricsRef.transaction((current) => {
-      const metrics = current && typeof current === "object"
-        ? current
-        : {
-            login_attempts_total: 0,
-            login_success_count: 0,
-            login_failure_count: 0,
-            success_rate: 0,
-            first_attempt_success: null,
-          };
+      const metrics = normalizeMetricsPayload(current);
 
       const attempts = (metrics.login_attempts_total || 0) + 1;
       const successCount = (metrics.login_success_count || 0) + (success ? 1 : 0);
@@ -460,7 +563,7 @@ const fbRecordLoginAttempt = async (username, payload = {}) => {
         login_success_count: successCount,
         login_failure_count: failureCount,
         success_rate: Number((successCount / attempts).toFixed(4)),
-        first_attempt_success: metrics.first_attempt_success === null && attempts === 1
+        first_attempt_success: attempts === 1
           ? success
           : metrics.first_attempt_success,
       };
@@ -556,12 +659,12 @@ const saveUser = async (userObj) => {
  * - "firebase": Try Firebase first, fallback to LocalStorage
  * - "hybrid": Try Firebase first, fallback to LocalStorage
  */
-const getUser = async (username = null) => {
+const getUser = async (username = null, preferredPasswordType = null) => {
   const mode = getStorageMode();
 
   // If mode is local-only, skip Firebase
   if (mode === "local") {
-    return localGetUser(username);
+    return localGetUser(username, preferredPasswordType);
   }
 
   // Try Firebase first if enabled
@@ -571,7 +674,7 @@ const getUser = async (username = null) => {
       return localGetUser(username);
     }
 
-    const fbResult = await fbGetUser(username);
+    const fbResult = await fbGetUser(username, preferredPasswordType);
     
     if (fbResult.success) {
       console.log("User retrieved from Firebase");
@@ -582,7 +685,7 @@ const getUser = async (username = null) => {
   }
 
   // Fallback to LocalStorage
-  return localGetUser(username);
+  return localGetUser(username, preferredPasswordType);
 };
 
 /**

@@ -75,9 +75,9 @@ const saveRegistration = async (payload) => {
 };
 
 // Read and parse registration payload using storage module (Firebase + LocalStorage fallback).
-const readRegistration = async (username = null) => {
+const readRegistration = async (username = null, preferredPasswordType = null) => {
   if (window.StorageModule) {
-    const result = await window.StorageModule.getUser(username);
+    const result = await window.StorageModule.getUser(username, preferredPasswordType);
     return result.success ? result.data : null;
   } else {
     // Fallback to direct localStorage if module not loaded
@@ -608,11 +608,11 @@ const setupLoginPage = async () => {
   const usernameInput = document.getElementById("login-username");
   const loadUsernameBtn = document.getElementById("load-username");
 
-  let activeRegistration = null;
   let passwordType = getExperimentCondition();
   let currentInput = [];
   let attemptStartedAt = Date.now();
   let inputTapCount = 0;
+  let activeRegistration = null;
 
   const renderInput = () => {
     inputDisplay.textContent = formatInputDisplay(currentInput);
@@ -645,51 +645,65 @@ const setupLoginPage = async () => {
     message.classList.add(type);
   };
 
+  const queryRegistrationByUsername = async (username) => {
+    if (window.StorageModule && window.StorageModule.firebase && typeof window.StorageModule.firebase.get === "function") {
+      const result = await window.StorageModule.firebase.get(username, null);
+      return result && result.success ? result.data : null;
+    }
+
+    return readRegistration(username, null);
+  };
+
   const loadRegistrationByUsername = async () => {
-    const username = (usernameInput?.value || "").trim();
-    if (!username) {
-      showMessage("Enter Username first.", "error");
+    const enteredUsername = (usernameInput?.value || "").trim();
+    if (!enteredUsername || !isValidUsername(enteredUsername)) {
+      showMessage("Incorrect username.", "error");
       return false;
     }
 
-    if (!isValidUsername(username)) {
-      showMessage("Username must be 3-64 chars and only use letters, numbers, spaces, '_' or '-'.", "error");
-      return false;
-    }
-
-    const registration = await readRegistration(username);
+    const registration = await queryRegistrationByUsername(enteredUsername);
     if (!registration) {
-      showMessage("Username not found. Check Username or register first.", "error");
+      activeRegistration = null;
+      showMessage("Incorrect username.", "error");
       return false;
     }
 
-    activeRegistration = registration;
+    const storedPassword = typeof registration?.meta?.generated_password === "string"
+      ? registration.meta.generated_password
+      : typeof registration.generated_password === "string"
+        ? registration.generated_password
+        : "";
+    const storedKeypad = Array.isArray(registration?.meta?.generated_keypad)
+      ? registration.meta.generated_keypad
+      : Array.isArray(registration.generated_keypad)
+        ? registration.generated_keypad
+        : null;
+
     passwordType = registration.password_type === "digits" ? "digits" : "emoji";
-    const storedPassword = registration.generated_password || "";
-    const storedKeypad = Array.isArray(registration.generated_keypad) ? registration.generated_keypad : null;
     fillKeypad(passwordType, keypad, handleKey, storedPassword, storedKeypad);
-    hint.textContent = `Loaded Username: ${username}`;
-    clearAll();
-    showMessage("Username loaded. Enter password to login.", "success");
+    currentInput = [];
+    attemptStartedAt = Date.now();
+    inputTapCount = 0;
+    renderInput();
+
+    activeRegistration = {
+      username: enteredUsername,
+      password: storedPassword,
+      passwordType,
+    };
+
+    showMessage("User loaded. Enter password and click Login.", "success");
     return true;
   };
 
   keypad.innerHTML = "";
   keypad.className = `keypad ${passwordType}`;
+  fillKeypad(passwordType, keypad, handleKey, "", null);
 
   clearBtn.addEventListener("click", clearAll);
   if (loadUsernameBtn) {
     loadUsernameBtn.addEventListener("click", async () => {
       await loadRegistrationByUsername();
-    });
-  }
-
-  if (usernameInput) {
-    usernameInput.addEventListener("keydown", async (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        await loadRegistrationByUsername();
-      }
     });
   }
 
@@ -723,21 +737,30 @@ const setupLoginPage = async () => {
   loginBtn.addEventListener("click", async () => {
     const enteredUsername = (usernameInput?.value || "").trim();
     if (!activeRegistration || activeRegistration.username !== enteredUsername) {
-      const loaded = await loadRegistrationByUsername();
-      if (!loaded) return;
+      showMessage("Load user details first.", "error");
+      return;
     }
 
     if (currentInput.length !== PIN_LENGTH) {
-      showMessage(`Please enter ${PIN_LENGTH} characters`, "error");
+      showMessage("Incorrect password.", "error");
+      const analyticsPayload = {
+        success: false,
+        condition: activeRegistration.passwordType,
+        num_inputs: inputTapCount,
+        duration_ms: Date.now() - attemptStartedAt,
+      };
+      if (window.StorageModule) {
+        await window.StorageModule.recordLoginAttempt(enteredUsername, analyticsPayload);
+      }
       return;
     }
 
     const inputValue = currentInput.join("");
-    const isCorrect = inputValue === activeRegistration.generated_password;
+    const isCorrect = inputValue === activeRegistration.password;
     const durationMs = Date.now() - attemptStartedAt;
     const analyticsPayload = {
       success: isCorrect,
-      condition: passwordType,
+      condition: activeRegistration.passwordType,
       num_inputs: inputTapCount,
       duration_ms: durationMs,
     };
@@ -748,26 +771,35 @@ const setupLoginPage = async () => {
       showMessage("Login successful ✅", "success");
       
       // Record successful login attempt (for analytics)
-      if (window.StorageModule && activeRegistration.username) {
-        await window.StorageModule.recordLoginAttempt(activeRegistration.username, analyticsPayload);
+      if (window.StorageModule) {
+        await window.StorageModule.recordLoginAttempt(enteredUsername, analyticsPayload);
       }
     } else {
-      showMessage("Incorrect password, try again.", "error");
+      showMessage("Incorrect password.", "error");
       
       // Record failed login attempt (for analytics)
-      if (window.StorageModule && activeRegistration.username) {
-        await window.StorageModule.recordLoginAttempt(activeRegistration.username, analyticsPayload);
+      if (window.StorageModule) {
+        await window.StorageModule.recordLoginAttempt(enteredUsername, analyticsPayload);
       }
 
       clearAll();
     }
   });
 
-  const cachedRegistration = await readRegistration();
-  if (cachedRegistration && cachedRegistration.username && usernameInput) {
-    usernameInput.value = cachedRegistration.username;
-    await loadRegistrationByUsername();
+  if (usernameInput) {
+    usernameInput.addEventListener("keydown", async (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        await loadRegistrationByUsername();
+      }
+    });
+
+    usernameInput.addEventListener("input", () => {
+      activeRegistration = null;
+    });
   }
+
+  hint.textContent = "Enter username, click Load User Details, then enter password and click Login.";
 
   renderInput();
 };

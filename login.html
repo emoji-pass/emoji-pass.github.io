@@ -62,8 +62,19 @@
     <img class="small-image" src="./resources/login-banner.svg">
     <section id="login-panel" class="card">
       <div class="actions">
-        <input id="login-username" type="text" placeholder="Enter Username (e.g. user001)" />
-        <button id="load-username" class="secondary" type="button">Enter Username</button>
+        <input
+          id="login-username"
+          name="participant_id"
+          type="text"
+          placeholder="Enter Username (e.g. user001)"
+          autocomplete="off"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          data-form-type="other"
+          data-lpignore="true"
+        />
+        <button id="load-username" class="secondary" type="button">Load User Details</button>
       </div>
 
       <div class="input-row">

@@ -18,6 +18,7 @@ const STORAGE_KEY = "hcs_emoji_auth";
 const LOGIN_STATE_KEY = "hcs_logged_in";
 const EXPERIMENT_STATUS_KEY = "hcs_experiment_mode"
 const EXPERIMENT_CONDITION_KEY = 'hcs_experiment_condition';
+const TASK_NUMBER_KEY = "hcs_task_number"
 const EMOJI_MODE_DEFAULT = true;
 const EXPERIMENT_MODE_DEFAULT = true;
 const CENSOR_CHAR = "●";
@@ -163,9 +164,33 @@ const isLoggedIn = () => {
   }
 };
 
+// TODO: Set task number
+const saveTaskNumber = (payload) => {
+  localStorage.setItem(TASK_NUMBER_KEY, JSON.stringify(payload));
+}
+
+// TODO: Increment task number
+const incrementTaskNumber = () => {
+  var taskNumber = getTaskNumber();
+  taskNumber++;
+  saveTaskNumber(taskNumber);
+}
+
+// TODO: Get task number from localstorage
+const getTaskNumber = () => {
+  const raw = localStorage.getItem(TASK_NUMBER_KEY);
+  if (!raw) return 0;
+  try {
+    return parseInt(JSON.parse(raw));
+  } catch {
+    // default to emoji mode default
+    return 0;
+  }  
+}
+
 const isEmojiMode = () => {
   const raw = localStorage.getItem(EXPERIMENT_CONDITION_KEY);
-  if (!raw) return true;
+  if (!raw) return EMOJI_MODE_DEFAULT;
   try {
     return JSON.parse(raw) === "emoji";
   } catch {
@@ -314,6 +339,26 @@ const updatePageByLogin = () => {
     }
   }
 };
+
+// TODO: Display emoji key
+const updateAccountPageByExperimentStatus = () => {
+  const secretEmojiContainer = document.getElementById("secret-emoji-container");
+  if (!secretEmojiContainer) return;
+
+  const secretEmoji = document.getElementById("secret-emoji");
+  if (!secretEmojiContainer) return;
+
+  if (isExperiment() && getTaskNumber() >= 2) {
+    secretEmojiContainer.style.display="block";
+
+    if (getTaskNumber() == 2) {
+      secretEmoji.innerHTML = "🐶";
+    }
+    else if (getTaskNumber() > 2) {
+      secretEmoji.innerHTML = "🐒";
+    }
+  }
+}
 
 const updateAdminPageByExperimentStatus = () => {
   const experimentOnLabel = document.getElementById("experiment-on");
@@ -564,6 +609,8 @@ const setupRegisterPage = () => {
       const saveResult = await saveRegistration(pendingRegistration);
       
       if (saveResult.success) {
+        // TODO: SET TASK TO 1
+        saveTaskNumber(1);
         const currentStorageMode = window.StorageModule ? window.StorageModule.getStorageMode() : "local";
         if (saveResult.storage === "firebase" || saveResult.storage === "both") {
           confirmMessage.textContent = "Success! Account registered to Firebase.";
@@ -828,6 +875,10 @@ const setupLoginPage = async () => {
     
     if (isCorrect) {
       saveLoginState(true);
+      // TODO: INCREMENT TASK NUMBER
+      if (getTaskNumber() > 0) {
+        incrementTaskNumber();
+      }
       updatePageByLogin();
       showMessage("Login successful ✅", "success");
       
@@ -902,4 +953,5 @@ const updatePage = () => {
   updateAdminPageByExperimentStatus();
   updateAdminPageByStorageMode();
   setupStorageMode();
+  updateAccountPageByExperimentStatus();
 }

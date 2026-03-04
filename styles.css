@@ -53,6 +53,15 @@ body {
   align-items: center;
 }
 
+#secret-emoji-container {
+  display: none;
+}
+
+#secret-emoji {
+  font-size: 50px;
+  text-align: center;
+}
+
 .nav-link,
 .nav-link:visited {
   color: var(--text);
